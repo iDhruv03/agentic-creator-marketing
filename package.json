@@ -1,0 +1,23 @@
+{
+  "name": "agentic-creator-marketing-infrastructure",
+  "version": "1.0.0",
+  "description": "Agentic Creator Marketing Infrastructure (CMI): An MCP-Enabled Platform for Brands, Agencies, Creators, and Autonomous AI Marketing Agents",
+  "author": "Dhruv (iDhruv03)",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/iDhruv03/agentic-creator-marketing.git"
+  },
+  "scripts": {
+    "dev": "concurrently \"npm run dev:server\" \"npm run dev:client\"",
+    "dev:server": "cd server && npm run dev",
+    "dev:client": "cd client && npm run dev",
+    "build": "cd server && npm run build && cd ../client && npm run build",
+    "seed": "cd server && npm run seed",
+    "start": "cd server && npm start",
+    "test": "cd server && npm test"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  }
+}

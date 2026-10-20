@@ -1,0 +1,40 @@
+name: CMI Platform CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        node-version: [20.x, 22.x]
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Use Node.js ${{ matrix.node-version }}
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ matrix.node-version }}
+
+    - name: Install dependencies
+      run: |
+        npm install
+        cd server && npm install
+        cd ../client && npm install
+
+    - name: Seed database
+      run: cd server && npm run seed
+
+    - name: Run verification test suite
+      run: cd server && npm test
+
+    - name: Build server & client
+      run: |
+        cd server && npm run build
+        cd ../client && npm run build

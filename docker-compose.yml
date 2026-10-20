@@ -1,0 +1,18 @@
+version: '3.8'
+
+services:
+  cmi-platform:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "3001:3001"
+    environment:
+      - PORT=3001
+      - NODE_ENV=production
+    restart: unless-stopped
+    volumes:
+      - cmi-data:/app/server/data
+
+volumes:
+  cmi-data:
