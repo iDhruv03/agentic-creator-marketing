@@ -1,40 +1,38 @@
-name: CMI Platform CI
+name: CI
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
   pull_request:
-    branches: [ main ]
+    branches: [main]
 
 jobs:
-  build-and-test:
+  verify:
     runs-on: ubuntu-latest
-
     strategy:
       matrix:
-        node-version: [20.x, 22.x]
-
+        node-version: [22.x]
     steps:
-    - uses: actions/checkout@v4
-
-    - name: Use Node.js ${{ matrix.node-version }}
-      uses: actions/setup-node@v4
-      with:
-        node-version: ${{ matrix.node-version }}
-
-    - name: Install dependencies
-      run: |
-        npm install
-        cd server && npm install
-        cd ../client && npm install
-
-    - name: Seed database
-      run: cd server && npm run seed
-
-    - name: Run verification test suite
-      run: cd server && npm test
-
-    - name: Build server & client
-      run: |
-        cd server && npm run build
-        cd ../client && npm run build
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: npm
+          cache-dependency-path: |
+            server/package-lock.json
+            client/package-lock.json
+      - name: Install
+        run: npm --prefix server ci && npm --prefix client ci
+      - name: Typecheck
+        run: npm --prefix server run typecheck && npm --prefix client run typecheck
+      - name: Test (governance, ledger, audit chain, agent runtime)
+        run: npm --prefix server test
+      - name: Build
+        run: npm --prefix server run build && npm --prefix client run build
+  docker:
+    runs-on: ubuntu-latest
+    needs: verify
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build image
+        run: docker build -t cmi:ci .

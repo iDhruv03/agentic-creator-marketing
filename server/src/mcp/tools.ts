@@ -1,484 +1,380 @@
-import { v4 as uuidv4 } from 'uuid';
-import { queryAll, queryOne, execute } from '../db/database';
-import { McpToolDefinition } from './types';
+import { z } from 'zod';
+import { queryOne } from '../db/database';
+import { CoreError, notFound } from '../core/ids';
+import { searchCreators, getCreator, rateBenchmark, NICHES } from '../core/marketplace';
+import { getCampaign, updateCampaign, addToShortlist, listShortlist } from '../core/campaigns';
+import { sendOffer, counterOffer, acceptOffer, declineOffer, listCollaborations, submitDeliverable, reviewDeliverable, runComplianceCheck, getDeliverable, DELIVERABLE_TYPES } from '../core/collaborations';
+import { releasePayment } from '../core/payments';
+import { campaignAnalytics } from '../core/analytics';
+import { listAudit } from '../core/audit';
+import { createCheckpoint, listCheckpoints, type AgentSession } from '../core/governance';
 
-// Tool Definitions for MCP Discovery
-export const TOOL_DEFINITIONS: McpToolDefinition[] = [
-  {
+/**
+ * Governed MCP tool registry (paper §5.3 / §7.3).
+ *
+ * Each tool has a zod input schema (converted to JSON Schema for MCP
+ * discovery and for the Claude tool definitions) and a handler that calls
+ * the Infrastructure Core. Handlers never touch the database directly for
+ * writes — the core owns every state transition.
+ */
+
+export interface ToolContext {
+  session: AgentSession;
+  run_id?: string | null;
+}
+
+export interface ToolSpec<S extends z.ZodTypeAny = z.ZodTypeAny> {
+  name: string;
+  title: string;
+  description: string;
+  category: 'discovery' | 'campaign' | 'contracts' | 'delivery' | 'payments' | 'governance' | 'insight';
+  risk: 'read' | 'write' | 'financial' | 'high_impact';
+  schema: S;
+  handler: (input: z.infer<S>, ctx: ToolContext) => unknown | Promise<unknown>;
+}
+
+function tool<S extends z.ZodTypeAny>(spec: ToolSpec<S>): ToolSpec<any> {
+  return spec as ToolSpec<any>;
+}
+
+const campaignIdField = z.string().describe('Campaign identifier, e.g. "camp_techpulse_earbuds".');
+
+export const TOOLS: ToolSpec[] = [
+  tool({
     name: 'search_creators',
-    description: 'Search and filter creators across platforms (Instagram, YouTube, TikTok) based on niche, follower bounds, engagement rate, platform, and maximum rate.',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        niche: { type: 'string', description: 'Content niche, e.g. "Tech & Gadgets", "Beauty & Skincare", "Fitness & Apparel"' },
-        min_followers: { type: 'number', description: 'Minimum follower count (e.g. 50000)' },
-        max_followers: { type: 'number', description: 'Maximum follower count (e.g. 500000)' },
-        min_engagement: { type: 'number', description: 'Minimum engagement rate percentage (e.g. 3.5)' },
-        max_rate: { type: 'number', description: 'Maximum rate acceptable for standard video deliverable' },
-        platform: { type: 'string', description: 'Preferred social platform: "instagram", "youtube", or "tiktok"' },
-      },
+    title: 'Search creators',
+    description: `Search the verified creator marketplace. Filters: niche, platform, follower bounds, engagement, max rate. Pass campaign_id to get a predictive match score (0-100) against that campaign's brief. Available niches: ${NICHES.join(', ')}. Returns up to \`limit\` creators ranked by match score.`,
+    category: 'discovery',
+    risk: 'read',
+    schema: z.object({
+      campaign_id: campaignIdField.optional().describe('Score results against this campaign brief (recommended).'),
+      query: z.string().optional().describe('Free-text search across name, handle, bio and content tags.'),
+      niche: z.string().optional().describe('Content niche, e.g. "Tech & Gadgets".'),
+      platform: z.enum(['instagram', 'youtube', 'tiktok']).optional(),
+      min_followers: z.number().int().nonnegative().optional(),
+      max_followers: z.number().int().positive().optional(),
+      min_engagement: z.number().nonnegative().optional().describe('Minimum engagement rate in percent, e.g. 3.5.'),
+      max_rate: z.number().positive().optional().describe('Maximum acceptable rate in USD for rate_type.'),
+      rate_type: z.enum(['post', 'reel', 'video', 'story']).optional().describe('Which rate max_rate applies to (default video).'),
+      country: z.string().optional().describe('Audience top country filter, e.g. "United States".'),
+      verified_only: z.boolean().optional(),
+      sort: z.enum(['relevance', 'followers', 'engagement', 'rate_asc', 'rate_desc', 'rating']).optional(),
+      limit: z.number().int().min(1).max(50).optional().describe('Default 10.'),
+    }),
+    handler: (input) => {
+      const rows = searchCreators({ ...input, limit: input.limit ?? 10 });
+      return {
+        count: rows.length,
+        creators: rows.map((c) => ({
+          id: c.id, name: c.name, handle: `@${c.handle}`, primary_niche: c.primary_niche, secondary_niches: c.secondary_niches, platforms: c.platforms,
+          follower_count: c.follower_count, engagement_rate_pct: c.engagement_rate, avg_views: c.avg_views,
+          rates_usd: { post: c.rate_post, reel: c.rate_reel, video: c.rate_video, story: c.rate_story },
+          audience_top_country: c.audience.countries[0] ?? null, audience_top_age: c.audience.ages[0] ?? null,
+          rating: c.rating, completed_campaigns: c.completed_campaigns, verified: Boolean(c.verified), available: Boolean(c.available),
+          match_score: c.match_score, match_breakdown: c.match_breakdown, match_reasons: c.match_reasons,
+        })),
+      };
     },
-  },
-  {
-    name: 'draft_campaign_brief',
-    description: 'Generate, store, or refine a structured creative campaign brief with target audience guidelines, deliverables, and budget parameters.',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        campaign_id: { type: 'string', description: 'Target campaign identifier' },
-        title: { type: 'string', description: 'Updated campaign title' },
-        brief: { type: 'string', description: 'Comprehensive campaign creative brief' },
-        objectives: { type: 'string', description: 'Marketing objectives and target KPIs' },
-        target_audience: { type: 'string', description: 'Target demographic profile' },
-        content_guidelines: { type: 'string', description: 'Mandatory talking points, hashtags, and disclosures' },
-        required_deliverables: { type: 'array', items: { type: 'string' }, description: 'Deliverables list, e.g. ["1x YouTube Video", "1x Reel"]' },
-        budget: { type: 'number', description: 'Total allocated campaign budget' },
-      },
-      required: ['campaign_id', 'brief'],
+  }),
+
+  tool({
+    name: 'get_creator_profile',
+    title: 'Get creator profile',
+    description: 'Full media kit for one creator: bio, per-platform stats, audience demographics, rate card, portfolio and collaboration history.',
+    category: 'discovery',
+    risk: 'read',
+    schema: z.object({ creator_id: z.string().describe('Creator id (e.g. "cr_marcus") or @handle.') }),
+    handler: (input) => {
+      const c = getCreator(input.creator_id);
+      const history = queryOne<{ n: number; completed: number }>(`SELECT COUNT(*) n, SUM(CASE WHEN status='COMPLETED' THEN 1 ELSE 0 END) completed FROM collaborations WHERE creator_id = ?`, [c.id]);
+      return { ...c, wallet_balance: undefined, platform_history: { collaborations_on_platform: history?.n ?? 0, completed_on_platform: history?.completed ?? 0 } };
     },
-  },
-  {
-    name: 'send_collaboration_offer',
-    description: 'Propose a collaboration rate and deliverable agreement to a creator. Verifies agent budget ceiling and per-collaboration rate limits. Locks funds in escrow.',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        campaign_id: { type: 'string', description: 'Campaign ID' },
-        creator_id: { type: 'string', description: 'Target creator ID (e.g. "cr_marcus")' },
-        proposed_rate: { type: 'number', description: 'Agreed or proposed rate in USD' },
-        deliverables: { type: 'array', items: { type: 'string' }, description: 'Deliverables expected, e.g. ["YOUTUBE_VIDEO", "REEL"]' },
-        deadline: { type: 'string', description: 'Deliverable submission deadline (YYYY-MM-DD)' },
-        terms: { type: 'string', description: 'Collaboration scope, usage rights, and affiliate terms' },
-      },
-      required: ['campaign_id', 'creator_id', 'proposed_rate', 'deliverables', 'deadline'],
-    },
-  },
-  {
-    name: 'track_deliverable',
-    description: 'Verify whether agreed creator content has been published and meets campaign brief requirements. Inspects live URL and updates deliverable status.',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        collaboration_id: { type: 'string', description: 'Collaboration ID' },
-        deliverable_id: { type: 'string', description: 'Deliverable ID' },
-        content_url: { type: 'string', description: 'Live social URL of the published post or video' },
-        verification_metrics: {
-          type: 'object',
-          description: 'Performance stats: { views, likes, comments, engagement }',
-        },
-      },
-      required: ['collaboration_id', 'deliverable_id', 'content_url'],
-    },
-  },
-  {
-    name: 'release_payment',
-    description: 'Release escrowed payment to a creator following approved deliverable completion. Subject to human-approval checkpoint if amount exceeds $1,000 threshold.',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        collaboration_id: { type: 'string', description: 'Collaboration ID' },
-        deliverable_id: { type: 'string', description: 'Approved deliverable ID' },
-        amount: { type: 'number', description: 'Payment amount to release' },
-        note: { type: 'string', description: 'Audit release note' },
-      },
-      required: ['collaboration_id', 'deliverable_id', 'amount'],
-    },
-  },
-  {
+  }),
+
+  tool({
+    name: 'get_rate_benchmark',
+    title: 'Rate benchmark',
+    description: 'Market rate percentiles (p25 / median / p75) for a deliverable type among creators of a similar size and niche. Use it to sanity-check a proposed rate before sending an offer.',
+    category: 'insight',
+    risk: 'read',
+    schema: z.object({
+      follower_count: z.number().int().positive(),
+      deliverable: z.enum(['post', 'reel', 'video', 'story']),
+      niche: z.string().optional(),
+    }),
+    handler: (input) => rateBenchmark(input),
+  }),
+
+  tool({
     name: 'get_campaign_status',
-    description: 'Retrieve real-time operational status of a campaign including budget balance, active collaborations, deliverable states, and pending checkpoints.',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        campaign_id: { type: 'string', description: 'Campaign ID' },
-      },
-      required: ['campaign_id'],
+    title: 'Campaign status',
+    description: 'Real-time snapshot of a campaign: brief, targeting, budget (allocated / escrow / spent / available), shortlist, collaborations with deliverable states, and pending human checkpoints. Call this first before acting on a campaign.',
+    category: 'campaign',
+    risk: 'read',
+    schema: z.object({ campaign_id: campaignIdField }),
+    handler: (input) => {
+      const c = getCampaign(input.campaign_id);
+      const shortlist = listShortlist(c.id).map((s) => ({ creator_id: s.creator_id, handle: `@${s.creator.handle}`, match_score: s.match_score, status: s.status }));
+      const collaborations = listCollaborations({ campaign_id: c.id });
+      const checkpoints = listCheckpoints({ campaign_id: c.id, status: 'PENDING' });
+      return {
+        campaign: {
+          id: c.id, title: c.title, brand: c.brand_name, status: c.status, brief: c.brief, objectives: c.objectives,
+          target_niches: c.target_niches, target_platforms: c.target_platforms, target_audience: c.target_audience,
+          content_guidelines: c.content_guidelines, required_deliverables: c.required_deliverables,
+          rate_band: { min: c.rate_band_min, max: c.rate_band_max }, start_date: c.start_date, end_date: c.end_date,
+        },
+        budget: c.financials,
+        shortlist,
+        collaborations: collaborations.map((col: any) => ({
+          id: col.id, creator_id: col.creator_id, creator: `@${col.creator_handle}`, status: col.status, proposed_rate: col.proposed_rate, agreed_rate: col.agreed_rate,
+          initiated_by: col.initiated_by, deadline: col.deadline, escrow_held: col.escrow_held,
+          deliverables: col.deliverables.map((d: any) => ({ id: d.id, type: d.deliverable_type, status: d.status, content_url: d.content_url, compliance_passed: d.compliance?.passed ?? null })),
+        })),
+        pending_checkpoints: checkpoints.map((k) => ({ id: k.id, action_type: k.action_type, amount: k.amount, tool_name: k.tool_name, justification: k.justification })),
+      };
     },
-  },
-  {
+  }),
+
+  tool({
+    name: 'get_campaign_analytics',
+    title: 'Campaign analytics',
+    description: 'Reach, engagement and cost-efficiency metrics for a campaign, broken down by creator and platform.',
+    category: 'insight',
+    risk: 'read',
+    schema: z.object({ campaign_id: campaignIdField }),
+    handler: (input) => campaignAnalytics(input.campaign_id),
+  }),
+
+  tool({
+    name: 'add_to_shortlist',
+    title: 'Add to shortlist',
+    description: 'Add a creator to the campaign shortlist for brand review, with your rationale. Shortlist approval by a human is the paper\'s matching-accuracy signal, so include a concrete reason.',
+    category: 'campaign',
+    risk: 'write',
+    schema: z.object({ campaign_id: campaignIdField, creator_id: z.string(), rationale: z.string().min(10).describe('Why this creator fits the brief.') }),
+    handler: (input, ctx) => {
+      const entry = addToShortlist(input.campaign_id, input.creator_id, { type: 'AGENT', id: ctx.session.id }, input.rationale);
+      return { shortlist_entry_id: entry.id, creator: `@${entry.creator.handle}`, match_score: entry.match_score, status: entry.status, message: `@${entry.creator.handle} added to the shortlist (match ${entry.match_score}/100).` };
+    },
+  }),
+
+  tool({
+    name: 'draft_campaign_brief',
+    title: 'Draft campaign brief',
+    description: 'Write or refine the structured campaign brief stored in the shared data layer: creative brief, objectives, target audience, content guidelines (mandatory tags/handles/codes), deliverables and rate band. Changes after a creator has accepted an offer are routed to a human checkpoint.',
+    category: 'campaign',
+    risk: 'write',
+    schema: z.object({
+      campaign_id: campaignIdField,
+      title: z.string().optional(),
+      brief: z.string().optional().describe('Creative brief: the story, product truths, tone.'),
+      objectives: z.string().optional().describe('Objectives and KPIs.'),
+      target_audience: z.string().optional(),
+      content_guidelines: z.string().optional().describe('Mandatory talking points, hashtags, @handles, discount codes and disclosures.'),
+      required_deliverables: z.array(z.string()).optional().describe('e.g. ["1x YouTube Video", "1x Instagram Reel"]'),
+      target_niches: z.array(z.string()).optional(),
+      target_platforms: z.array(z.enum(['instagram', 'youtube', 'tiktok'])).optional(),
+      rate_band_min: z.number().nonnegative().optional(),
+      rate_band_max: z.number().positive().optional(),
+    }),
+    handler: (input, ctx) => {
+      const { campaign_id, ...patch } = input;
+      const c = updateCampaign(campaign_id, patch, { type: 'AGENT', id: ctx.session.id });
+      return { message: 'Campaign brief updated in the shared data layer.', campaign: { id: c.id, title: c.title, brief: c.brief, objectives: c.objectives, target_audience: c.target_audience, content_guidelines: c.content_guidelines, required_deliverables: c.required_deliverables, rate_band: { min: c.rate_band_min, max: c.rate_band_max } } };
+    },
+  }),
+
+  tool({
+    name: 'send_collaboration_offer',
+    title: 'Send collaboration offer',
+    description: `Send a paid collaboration offer to a creator and lock the proposed rate in campaign escrow. Subject to the session's budget ceiling (hard block) and per-collaboration rate ceiling (human checkpoint). Deliverable types: ${Object.keys(DELIVERABLE_TYPES).join(', ')}.`,
+    category: 'contracts',
+    risk: 'financial',
+    schema: z.object({
+      campaign_id: campaignIdField,
+      creator_id: z.string(),
+      proposed_rate: z.number().positive().describe('Total USD for all deliverables.'),
+      deliverables: z.array(z.string()).min(1).describe('e.g. ["YOUTUBE_VIDEO", "REEL"]'),
+      deadline: z.string().optional().describe('YYYY-MM-DD'),
+      terms: z.string().optional().describe('Scope, usage rights, exclusivity, tracking links.'),
+      usage_rights: z.string().optional(),
+      exclusivity_days: z.number().int().nonnegative().optional(),
+      message: z.string().optional().describe('Personal note to the creator.'),
+    }),
+    handler: (input, ctx) => {
+      const col = sendOffer(input, { type: 'AGENT', id: ctx.session.id, name: ctx.session.name, session_id: ctx.session.id });
+      return { collaboration_id: col.id, status: col.status, creator: `@${col.creator_handle}`, proposed_rate: col.proposed_rate, escrow_locked: col.escrow_held, deadline: col.deadline, deliverables: col.deliverables.map((d) => ({ id: d.id, type: d.deliverable_type, status: d.status })), message: `Offer of $${col.proposed_rate.toLocaleString()} sent to @${col.creator_handle}; escrow hold recorded in the ledger.` };
+    },
+  }),
+
+  tool({
+    name: 'respond_to_counter_offer',
+    title: 'Respond to counter-offer',
+    description: 'Accept, counter or decline a creator\'s counter-offer on an existing collaboration. Accepting or countering commits spend and is subject to the same budget and rate ceilings as a new offer.',
+    category: 'contracts',
+    risk: 'financial',
+    schema: z.object({
+      collaboration_id: z.string(),
+      decision: z.enum(['ACCEPT', 'COUNTER', 'DECLINE']),
+      counter_amount: z.number().positive().optional().describe('Required when decision is COUNTER.'),
+      message: z.string().optional(),
+    }),
+    handler: (input, ctx) => {
+      const actor = { type: 'AGENT' as const, id: ctx.session.id, name: ctx.session.name };
+      if (input.decision === 'ACCEPT') { const c = acceptOffer(input.collaboration_id, actor, input.message); return { collaboration_id: c.id, status: c.status, agreed_rate: c.agreed_rate, message: `Accepted at $${c.agreed_rate?.toLocaleString()}.` }; }
+      if (input.decision === 'COUNTER') {
+        if (!input.counter_amount) throw new CoreError('counter_amount is required for COUNTER.');
+        const c = counterOffer(input.collaboration_id, input.counter_amount, input.message, actor);
+        return { collaboration_id: c.id, status: c.status, proposed_rate: c.proposed_rate, message: `Countered at $${c.proposed_rate.toLocaleString()}.` };
+      }
+      const c = declineOffer(input.collaboration_id, actor, input.message);
+      return { collaboration_id: c.id, status: c.status, message: 'Offer withdrawn; escrow returned to the campaign.' };
+    },
+  }),
+
+  tool({
+    name: 'track_deliverable',
+    title: 'Track deliverable',
+    description: 'Record that agreed content has been published: stores the live URL and caption, fetches performance metrics, and runs the compliance check (disclosure, platform, required tags) against the brief. Moves the deliverable to SUBMITTED for review.',
+    category: 'delivery',
+    risk: 'write',
+    schema: z.object({
+      collaboration_id: z.string(),
+      deliverable_id: z.string(),
+      content_url: z.string().url().describe('Public Instagram / YouTube / TikTok URL.'),
+      caption: z.string().optional().describe('Post caption / description, used for disclosure checks.'),
+      verification_metrics: z.object({ views: z.number().optional(), likes: z.number().optional(), comments: z.number().optional(), shares: z.number().optional(), saves: z.number().optional(), clicks: z.number().optional(), engagement_rate: z.number().optional() }).optional(),
+    }),
+    handler: (input, ctx) => {
+      const d = getDeliverable(input.deliverable_id);
+      if (d.collaboration_id !== input.collaboration_id) throw new CoreError('Deliverable does not belong to that collaboration.');
+      const out = submitDeliverable(input.deliverable_id, { content_url: input.content_url, caption: input.caption, metrics: input.verification_metrics as any }, { type: 'AGENT', id: ctx.session.id, name: ctx.session.name });
+      return { deliverable_id: out.deliverable.id, status: out.deliverable.status, collaboration_status: out.collaboration.status, compliance: out.deliverable.compliance, metrics: out.deliverable.metrics, message: `Deliverable tracked. Compliance ${out.deliverable.compliance?.passed ? 'passed' : 'FAILED'} (${out.deliverable.compliance?.score}%).` };
+    },
+  }),
+
+  tool({
+    name: 'check_compliance',
+    title: 'Check compliance',
+    description: 'Dry-run the sponsored-content compliance checker on a caption + URL without changing any state. Use before approving content.',
+    category: 'delivery',
+    risk: 'read',
+    schema: z.object({ campaign_id: campaignIdField, deliverable_type: z.string().optional(), caption: z.string(), content_url: z.string() }),
+    handler: (input) => {
+      const c = getCampaign(input.campaign_id);
+      return runComplianceCheck({ caption: input.caption, content_url: input.content_url, campaign: { content_guidelines: c.content_guidelines, title: c.title, brand_name: c.brand_name }, deliverable_type: input.deliverable_type ?? 'POST' });
+    },
+  }),
+
+  tool({
+    name: 'review_deliverable',
+    title: 'Review deliverable',
+    description: 'Approve a submitted deliverable or request changes. Approval is the precondition for release_payment.',
+    category: 'delivery',
+    risk: 'write',
+    schema: z.object({ deliverable_id: z.string(), decision: z.enum(['APPROVED', 'CHANGES_REQUESTED']), notes: z.string().optional() }),
+    handler: (input, ctx) => {
+      const out = reviewDeliverable(input.deliverable_id, input.decision, input.notes, { type: 'AGENT', id: ctx.session.id, name: ctx.session.name });
+      return { deliverable_id: out.deliverable.id, status: out.deliverable.status, collaboration_status: out.collaboration.status, message: `Deliverable ${input.decision.toLowerCase().replace('_', ' ')}.` };
+    },
+  }),
+
+  tool({
+    name: 'release_payment',
+    title: 'Release payment',
+    description: 'Release escrowed funds to the creator for an approved deliverable. Amounts above the autonomous threshold are held at a human checkpoint. Omit amount to release the full remaining escrow (always held for approval).',
+    category: 'payments',
+    risk: 'high_impact',
+    schema: z.object({
+      collaboration_id: z.string(),
+      deliverable_id: z.string().optional().describe('Approved deliverable this payout covers.'),
+      amount: z.number().positive().optional().describe('USD. Defaults to remaining escrow.'),
+      note: z.string().optional(),
+    }),
+    handler: (input, ctx) => {
+      const out = releasePayment(input, { type: 'AGENT', id: ctx.session.id, name: ctx.session.name });
+      return { payment_status: 'RELEASED', amount: out.amount, ledger_entry_id: out.ledger_entry_id, collaboration_status: out.collaboration.status, creator: `@${out.collaboration.creator_handle}`, message: `Released $${out.amount.toLocaleString()} to @${out.collaboration.creator_handle}.` };
+    },
+  }),
+
+  tool({
     name: 'list_audit_logs',
-    description: 'Inspect the immutable audit log for an agent session or campaign to ensure compliance and traceability.',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        campaign_id: { type: 'string', description: 'Optional campaign filter' },
-        limit: { type: 'number', description: 'Max records to retrieve (default 20)' },
-      },
+    title: 'List audit logs',
+    description: 'Read the immutable audit trail for this session or a campaign to confirm what has already been done.',
+    category: 'governance',
+    risk: 'read',
+    schema: z.object({ campaign_id: campaignIdField.optional(), limit: z.number().int().min(1).max(100).optional(), this_session_only: z.boolean().optional() }),
+    handler: (input, ctx) => {
+      const { items } = listAudit({ campaign_id: input.campaign_id, session_id: input.this_session_only ? ctx.session.id : undefined, limit: input.limit ?? 20 });
+      return { count: items.length, logs: items.map((l) => ({ id: l.id, timestamp: l.timestamp, actor: `${l.actor_type}:${l.actor_id}`, tool: l.tool_name, status: l.execution_status, summary: l.result_summary, guardrail_notes: l.guardrail_notes, duration_ms: l.duration_ms })) };
     },
-  },
-  {
+  }),
+
+  tool({
     name: 'request_human_approval',
-    description: 'Proactively route an ambiguous or high-risk marketing decision to a human brand manager checkpoint with explanation.',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        action_type: { type: 'string', description: 'Nature of decision (e.g. "STRATEGIC_DIRECTION", "RATE_EXCEPTION")' },
-        details: { type: 'string', description: 'Detailed context and candidate alternatives' },
-        reason: { type: 'string', description: 'Why human intervention is recommended' },
-      },
-      required: ['action_type', 'details', 'reason'],
+    title: 'Request human approval',
+    description: 'Escalate an ambiguous or high-risk decision to the brand/agency reviewer with context and options. Use when the brief is unclear, when a creator is borderline, or before any action you are not confident about.',
+    category: 'governance',
+    risk: 'write',
+    schema: z.object({
+      action_type: z.string().describe('Short label, e.g. "STRATEGIC_DIRECTION", "RATE_EXCEPTION", "CREATOR_FIT".'),
+      details: z.string().describe('Context and the options you are weighing.'),
+      reason: z.string().describe('Why a human should decide.'),
+      campaign_id: campaignIdField.optional(),
+    }),
+    handler: (input, ctx) => {
+      const chk = createCheckpoint({ session: ctx.session, run_id: ctx.run_id, campaign_id: input.campaign_id ?? ctx.session.campaign_id, action_type: 'AGENT_ESCALATION', risk_level: 'LOW', tool_name: 'request_human_approval', payload: { ...input }, justification: `${input.action_type}: ${input.reason}` });
+      return { checkpoint_id: chk.id, status: 'PENDING_HUMAN_APPROVAL', message: `Escalated to the reviewer queue as checkpoint ${chk.id}. Continue with other work; do not assume approval.` };
     },
-  },
+  }),
 ];
 
-// Tool Implementation Logic
-export async function executeTool(toolName: string, params: any, sessionId: string): Promise<any> {
-  switch (toolName) {
-    case 'search_creators': {
-      let sql = `SELECT * FROM creators WHERE 1=1`;
-      const queryParams: any[] = [];
+export const TOOL_MAP = new Map(TOOLS.map((t) => [t.name, t]));
 
-      if (params.niche) {
-        sql += ` AND (primary_niche LIKE ? OR secondary_niches LIKE ?)`;
-        queryParams.push(`%${params.niche}%`, `%${params.niche}%`);
-      }
-      if (params.min_followers) {
-        sql += ` AND follower_count >= ?`;
-        queryParams.push(params.min_followers);
-      }
-      if (params.max_followers) {
-        sql += ` AND follower_count <= ?`;
-        queryParams.push(params.max_followers);
-      }
-      if (params.min_engagement) {
-        sql += ` AND engagement_rate >= ?`;
-        queryParams.push(params.min_engagement);
-      }
-      if (params.max_rate) {
-        sql += ` AND rate_video <= ?`;
-        queryParams.push(params.max_rate);
-      }
-      if (params.platform) {
-        sql += ` AND platforms LIKE ?`;
-        queryParams.push(`%${params.platform}%`);
-      }
+export function getTool(name: string): ToolSpec {
+  const t = TOOL_MAP.get(name);
+  if (!t) throw notFound('MCP tool', name);
+  return t;
+}
 
-      sql += ` ORDER BY engagement_rate DESC LIMIT 10`;
-      const rows = queryAll<any>(sql, queryParams);
-
-      return {
-        count: rows.length,
-        creators: rows.map(r => ({
-          id: r.id,
-          name: r.name,
-          handle: r.handle,
-          primary_niche: r.primary_niche,
-          platforms: JSON.parse(r.platforms || '[]'),
-          follower_count: r.follower_count,
-          engagement_rate: `${r.engagement_rate}%`,
-          rate_post: r.rate_post,
-          rate_reel: r.rate_reel,
-          rate_video: r.rate_video,
-          audience_top_country: r.audience_top_country,
-          rating: r.rating,
-          verified: Boolean(r.verified),
-        })),
-      };
+/** Minimal zod → JSON Schema conversion for the tool surface used here. */
+export function zodToJsonSchema(schema: z.ZodTypeAny): any {
+  const def: any = (schema as any)._def;
+  const typeName = def?.typeName;
+  const withDesc = (o: any) => (schema.description ? { ...o, description: schema.description } : o);
+  switch (typeName) {
+    case 'ZodObject': {
+      const shape = def.shape();
+      const properties: Record<string, any> = {};
+      const required: string[] = [];
+      for (const [k, v] of Object.entries(shape)) {
+        const inner = v as z.ZodTypeAny;
+        properties[k] = zodToJsonSchema(inner);
+        if (!inner.isOptional()) required.push(k);
+      }
+      return withDesc({ type: 'object', properties, ...(required.length ? { required } : {}), additionalProperties: false });
     }
-
-    case 'draft_campaign_brief': {
-      const { campaign_id, title, brief, objectives, target_audience, content_guidelines, required_deliverables, budget } = params;
-      const existing = queryOne<any>(`SELECT * FROM campaigns WHERE id = ?`, [campaign_id]);
-      if (!existing) {
-        throw new Error(`Campaign with ID '${campaign_id}' not found.`);
-      }
-
-      const updates: string[] = ['brief = ?'];
-      const updateParams: any[] = [brief];
-
-      if (title) { updates.push('title = ?'); updateParams.push(title); }
-      if (objectives) { updates.push('objectives = ?'); updateParams.push(objectives); }
-      if (target_audience) { updates.push('target_audience = ?'); updateParams.push(target_audience); }
-      if (content_guidelines) { updates.push('content_guidelines = ?'); updateParams.push(content_guidelines); }
-      if (required_deliverables) {
-        updates.push('required_deliverables = ?');
-        updateParams.push(JSON.stringify(required_deliverables));
-      }
-      if (budget) { updates.push('budget = ?'); updateParams.push(budget); }
-
-      updateParams.push(campaign_id);
-      execute(`UPDATE campaigns SET ${updates.join(', ')} WHERE id = ?`, updateParams);
-
-      const updated = queryOne<any>(`SELECT * FROM campaigns WHERE id = ?`, [campaign_id]);
-      return {
-        message: 'Campaign brief successfully updated in shared data layer.',
-        campaign: {
-          id: updated.id,
-          title: updated.title,
-          brief: updated.brief,
-          objectives: updated.objectives,
-          target_audience: updated.target_audience,
-          budget: updated.budget,
-        },
-      };
+    case 'ZodString': return withDesc({ type: 'string' });
+    case 'ZodNumber': {
+      const isInt = def.checks?.some((c: any) => c.kind === 'int');
+      const min = def.checks?.find((c: any) => c.kind === 'min');
+      const max = def.checks?.find((c: any) => c.kind === 'max');
+      return withDesc({ type: isInt ? 'integer' : 'number', ...(min ? { minimum: min.value } : {}), ...(max ? { maximum: max.value } : {}) });
     }
-
-    case 'send_collaboration_offer': {
-      const { campaign_id, creator_id, proposed_rate, deliverables, deadline, terms } = params;
-
-      // Verify creator exists
-      const creator = queryOne<any>(`SELECT * FROM creators WHERE id = ?`, [creator_id]);
-      if (!creator) throw new Error(`Creator ${creator_id} not found.`);
-
-      // Verify campaign exists
-      const campaign = queryOne<any>(`SELECT * FROM campaigns WHERE id = ?`, [campaign_id]);
-      if (!campaign) throw new Error(`Campaign ${campaign_id} not found.`);
-
-      const collabId = `collab_${uuidv4().substring(0, 8)}`;
-      const agreedTerms = terms || `Collaboration for campaign ${campaign.title} with rate $${proposed_rate}.`;
-
-      // 1. Insert collaboration record
-      execute(
-        `INSERT INTO collaborations (
-          id, campaign_id, creator_id, proposed_rate, agreed_rate,
-          status, initiated_by, agent_session_id, terms, deadline
-        ) VALUES (?, ?, ?, ?, ?, 'OFFERED', 'AGENT', ?, ?, ?)`,
-        [collabId, campaign_id, creator_id, proposed_rate, proposed_rate, sessionId, agreedTerms, deadline]
-      );
-
-      // 2. Insert deliverables
-      const deliverablesList = Array.isArray(deliverables) ? deliverables : [deliverables];
-      for (const dType of deliverablesList) {
-        const delivId = `deliv_${uuidv4().substring(0, 8)}`;
-        execute(
-          `INSERT INTO deliverables (id, collaboration_id, deliverable_type, status)
-           VALUES (?, ?, ?, 'PENDING')`,
-          [delivId, collabId, dType]
-        );
-      }
-
-      // 3. Financial Ledger: Escrow Hold (Section 5.5)
-      const ledgerId = `ledg_${uuidv4().substring(0, 8)}`;
-      const newEscrowLocked = (campaign.escrow_locked || 0) + proposed_rate;
-      execute(
-        `UPDATE campaigns SET escrow_locked = ? WHERE id = ?`,
-        [newEscrowLocked, campaign_id]
-      );
-
-      execute(
-        `INSERT INTO ledger_entries (
-          id, campaign_id, collaboration_id, actor_type, actor_id,
-          entry_type, amount, balance_after, note
-        ) VALUES (?, ?, ?, 'AGENT', ?, 'ESCROW_HOLD', ?, ?, ?)`,
-        [
-          ledgerId, campaign_id, collabId, sessionId, proposed_rate,
-          campaign.budget - campaign.spent - newEscrowLocked,
-          `Escrow hold of $${proposed_rate} initiated by Agent session for @${creator.handle}.`
-        ]
-      );
-
-      // 4. Update agent session spent amount
-      execute(
-        `UPDATE agent_sessions SET spent_amount = spent_amount + ? WHERE id = ?`,
-        [proposed_rate, sessionId]
-      );
-
-      return {
-        collaboration_id: collabId,
-        status: 'OFFERED',
-        creator: { id: creator.id, name: creator.name, handle: creator.handle },
-        proposed_rate,
-        escrow_locked: proposed_rate,
-        deadline,
-        deliverables: deliverablesList,
-        message: `Collaboration offer dispatched to @${creator.handle}. Escrow hold of $${proposed_rate} locked in financial ledger.`,
-      };
-    }
-
-    case 'track_deliverable': {
-      const { collaboration_id, deliverable_id, content_url, verification_metrics } = params;
-
-      const deliv = queryOne<any>(`SELECT * FROM deliverables WHERE id = ?`, [deliverable_id]);
-      if (!deliv) throw new Error(`Deliverable ${deliverable_id} not found.`);
-
-      const metrics = verification_metrics || {
-        views: Math.floor(Math.random() * 40000 + 10000),
-        likes: Math.floor(Math.random() * 3000 + 500),
-        comments: Math.floor(Math.random() * 300 + 50),
-        engagement: `${(Math.random() * 3 + 3).toFixed(1)}%`,
-      };
-
-      execute(
-        `UPDATE deliverables SET 
-          status = 'SUBMITTED',
-          content_url = ?,
-          metrics_json = ?,
-          submitted_at = CURRENT_TIMESTAMP
-         WHERE id = ?`,
-        [content_url, JSON.stringify(metrics), deliverable_id]
-      );
-
-      execute(
-        `UPDATE collaborations SET status = 'DELIVERABLE_SUBMITTED', updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
-        [collaboration_id]
-      );
-
-      return {
-        deliverable_id,
-        collaboration_id,
-        status: 'DELIVERABLE_SUBMITTED',
-        content_url,
-        metrics,
-        message: 'Deliverable content verified against brief requirements. Status updated to SUBMITTED.',
-      };
-    }
-
-    case 'release_payment': {
-      const { collaboration_id, deliverable_id, amount, note } = params;
-
-      const collab = queryOne<any>(`SELECT * FROM collaborations WHERE id = ?`, [collaboration_id]);
-      if (!collab) throw new Error(`Collaboration ${collaboration_id} not found.`);
-
-      const creator = queryOne<any>(`SELECT * FROM creators WHERE id = ?`, [collab.creator_id]);
-      const campaign = queryOne<any>(`SELECT * FROM campaigns WHERE id = ?`, [collab.campaign_id]);
-
-      // 1. Mark deliverable and collaboration APPROVED / COMPLETED
-      execute(
-        `UPDATE deliverables SET status = 'APPROVED', approved_at = CURRENT_TIMESTAMP WHERE id = ?`,
-        [deliverable_id]
-      );
-
-      execute(
-        `UPDATE collaborations SET status = 'COMPLETED', updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
-        [collaboration_id]
-      );
-
-      // 2. Adjust campaign spend and escrow
-      const updatedSpent = (campaign.spent || 0) + amount;
-      const updatedEscrow = Math.max(0, (campaign.escrow_locked || 0) - amount);
-      execute(
-        `UPDATE campaigns SET spent = ?, escrow_locked = ? WHERE id = ?`,
-        [updatedSpent, updatedEscrow, campaign.id]
-      );
-
-      // 3. Transfer escrow to creator wallet balance
-      if (creator) {
-        execute(
-          `UPDATE creators SET wallet_balance = wallet_balance + ?, completed_campaigns = completed_campaigns + 1 WHERE id = ?`,
-          [amount, creator.id]
-        );
-      }
-
-      // 4. Ledger Entry: PAYOUT_RELEASE (Section 5.5)
-      const ledgerId = `ledg_${uuidv4().substring(0, 8)}`;
-      execute(
-        `INSERT INTO ledger_entries (
-          id, campaign_id, collaboration_id, actor_type, actor_id,
-          entry_type, amount, balance_after, note
-        ) VALUES (?, ?, ?, 'AGENT', ?, 'PAYOUT_RELEASE', ?, ?, ?)`,
-        [
-          ledgerId, campaign.id, collaboration_id, sessionId, amount,
-          campaign.budget - updatedSpent,
-          note || `Payout of $${amount} released to @${creator?.handle || 'creator'} upon deliverable approval.`
-        ]
-      );
-
-      return {
-        payment_status: 'RELEASED',
-        amount,
-        creator: creator?.handle,
-        ledger_entry_id: ledgerId,
-        message: `Payment of $${amount} successfully transferred to @${creator?.handle}. Ledger updated.`,
-      };
-    }
-
-    case 'get_campaign_status': {
-      const { campaign_id } = params;
-      const campaign = queryOne<any>(`SELECT * FROM campaigns WHERE id = ?`, [campaign_id]);
-      if (!campaign) throw new Error(`Campaign ${campaign_id} not found.`);
-
-      const brand = queryOne<any>(`SELECT name, industry FROM brands WHERE id = ?`, [campaign.brand_id]);
-      const collabs = queryAll<any>(
-        `SELECT c.*, cr.name as creator_name, cr.handle as creator_handle
-         FROM collaborations c
-         JOIN creators cr ON c.creator_id = cr.id
-         WHERE c.campaign_id = ?`,
-        [campaign_id]
-      );
-      const checkpoints = queryAll<any>(
-        `SELECT * FROM approval_checkpoints WHERE campaign_id = ? AND status = 'PENDING'`,
-        [campaign_id]
-      );
-
-      return {
-        campaign: {
-          id: campaign.id,
-          title: campaign.title,
-          brand: brand?.name,
-          budget: campaign.budget,
-          spent: campaign.spent,
-          escrow_locked: campaign.escrow_locked,
-          available_budget: campaign.budget - campaign.spent - campaign.escrow_locked,
-          status: campaign.status,
-        },
-        collaborations_count: collabs.length,
-        collaborations: collabs.map(c => ({
-          id: c.id,
-          creator: `@${c.creator_handle}`,
-          rate: c.agreed_rate || c.proposed_rate,
-          status: c.status,
-          initiated_by: c.initiated_by,
-        })),
-        pending_checkpoints_count: checkpoints.length,
-      };
-    }
-
-    case 'list_audit_logs': {
-      const limit = Number(params.limit || 20);
-      let sql = `SELECT * FROM audit_logs WHERE 1=1`;
-      const queryParams: any[] = [];
-      if (params.campaign_id) {
-        sql += ` AND campaign_id = ?`;
-        queryParams.push(params.campaign_id);
-      }
-      sql += ` ORDER BY timestamp DESC LIMIT ?`;
-      queryParams.push(limit);
-
-      const rows = queryAll<any>(sql, queryParams);
-      return {
-        count: rows.length,
-        logs: rows.map(r => ({
-          id: r.id,
-          timestamp: r.timestamp,
-          actor_type: r.actor_type,
-          actor_id: r.actor_id,
-          tool_name: r.tool_name,
-          execution_status: r.execution_status,
-          result_summary: r.result_summary,
-          guardrail_notes: r.guardrail_notes,
-          duration_ms: r.duration_ms,
-        })),
-      };
-    }
-
-    case 'request_human_approval': {
-      const { action_type, details, reason } = params;
-      const chkId = `chk_${uuidv4().substring(0, 8)}`;
-      const session = queryOne<any>(`SELECT * FROM agent_sessions WHERE id = ?`, [sessionId]);
-
-      execute(
-        `INSERT INTO approval_checkpoints (
-          id, agent_session_id, campaign_id, action_type, status,
-          tool_name, payload_json, justification
-        ) VALUES (?, ?, ?, ?, 'PENDING', 'request_human_approval', ?, ?)`,
-        [
-          chkId,
-          sessionId,
-          session?.campaign_id || 'camp_techpulse_earbuds',
-          action_type || 'MANUAL_AGENT_ESCALATION',
-          JSON.stringify({ details, reason }),
-          reason || 'Agent requested human direction.',
-        ]
-      );
-
-      return {
-        checkpoint_id: chkId,
-        status: 'PENDING_HUMAN_APPROVAL',
-        message: `Decision escalated to human brand manager. Checkpoint #${chkId} registered on dashboard queue.`,
-      };
-    }
-
-    default:
-      throw new Error(`Unknown MCP tool '${toolName}'.`);
+    case 'ZodBoolean': return withDesc({ type: 'boolean' });
+    case 'ZodEnum': return withDesc({ type: 'string', enum: def.values });
+    case 'ZodArray': return withDesc({ type: 'array', items: zodToJsonSchema(def.type) });
+    case 'ZodOptional': return { ...zodToJsonSchema(def.innerType), ...(schema.description ? { description: schema.description } : {}) };
+    case 'ZodNullable': return { ...zodToJsonSchema(def.innerType), nullable: true };
+    case 'ZodDefault': return zodToJsonSchema(def.innerType);
+    case 'ZodEffects': return zodToJsonSchema(def.schema);
+    default: return withDesc({});
   }
+}
+
+export interface McpToolDefinition { name: string; title: string; description: string; inputSchema: any; category: string; risk: string }
+
+export function toolDefinitions(filter?: string[]): McpToolDefinition[] {
+  return TOOLS.filter((t) => !filter || filter.includes(t.name)).map((t) => ({ name: t.name, title: t.title, description: t.description, inputSchema: zodToJsonSchema(t.schema), category: t.category, risk: t.risk }));
 }

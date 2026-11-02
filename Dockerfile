@@ -1,44 +1,26 @@
-# Multi-stage Docker build for CMI Platform
-FROM node:22-alpine AS builder
-
+# ---- build stage ------------------------------------------------------------
+FROM node:22-alpine AS build
 WORKDIR /app
 
-# Copy root and workspace definitions
-COPY package.json ./
-COPY server/package.json ./server/
-COPY client/package.json ./client/
+COPY server/package*.json ./server/
+COPY client/package*.json ./client/
+RUN npm --prefix server ci && npm --prefix client ci
 
-# Install dependencies
-RUN npm install
-RUN cd server && npm install
-RUN cd ../client && npm install
+COPY server ./server
+COPY client ./client
+RUN npm --prefix server run build && npm --prefix client run build
 
-# Copy source code
-COPY server/ ./server/
-COPY client/ ./client/
-
-# Build backend and frontend
-RUN cd server && npm run build
-RUN cd ../client && npm run build
-
-# Seed database
-RUN cd server && npm run seed
-
-# Production image
-FROM node:22-alpine AS runner
-
+# ---- runtime stage ----------------------------------------------------------
+FROM node:22-alpine AS runtime
+ENV NODE_ENV=production PORT=3001
 WORKDIR /app
-ENV NODE_ENV=production
-ENV PORT=3001
 
-COPY --from=builder /app/server/package.json ./server/
-COPY --from=builder /app/server/node_modules ./server/node_modules
-COPY --from=builder /app/server/dist ./server/dist
-COPY --from=builder /app/server/src/db/schema.sql ./server/dist/db/schema.sql
-COPY --from=builder /app/server/data ./server/data
-COPY --from=builder /app/client/dist ./client/dist
+COPY server/package*.json ./server/
+RUN npm --prefix server ci --omit=dev
+COPY --from=build /app/server/dist ./server/dist
+COPY --from=build /app/client/dist ./client/dist
 
+VOLUME ["/app/server/data"]
 EXPOSE 3001
-
-WORKDIR /app/server
-CMD ["node", "dist/index.js"]
+HEALTHCHECK --interval=30s --timeout=5s CMD wget -qO- http://localhost:3001/health || exit 1
+CMD ["node", "server/dist/index.js"]

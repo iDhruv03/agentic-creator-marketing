@@ -1,23 +1,23 @@
 {
   "name": "agentic-creator-marketing-infrastructure",
-  "version": "1.0.0",
-  "description": "Agentic Creator Marketing Infrastructure (CMI): An MCP-Enabled Platform for Brands, Agencies, Creators, and Autonomous AI Marketing Agents",
+  "version": "2.0.0",
+  "description": "Agentic Creator Marketing Infrastructure (CMI): a governed, MCP-enabled platform for brands, agencies, creators and autonomous AI marketing agents",
   "author": "Dhruv (iDhruv03)",
   "license": "MIT",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/iDhruv03/agentic-creator-marketing.git"
-  },
+  "private": true,
+  "repository": { "type": "git", "url": "https://github.com/iDhruv03/agentic-creator-marketing.git" },
+  "engines": { "node": ">=22.5.0" },
   "scripts": {
-    "dev": "concurrently \"npm run dev:server\" \"npm run dev:client\"",
-    "dev:server": "cd server && npm run dev",
-    "dev:client": "cd client && npm run dev",
-    "build": "cd server && npm run build && cd ../client && npm run build",
-    "seed": "cd server && npm run seed",
-    "start": "cd server && npm start",
-    "test": "cd server && npm test"
+    "setup": "npm install && npm --prefix server install && npm --prefix client install",
+    "dev": "concurrently -n api,web -c magenta,cyan \"npm --prefix server run dev\" \"npm --prefix client run dev\"",
+    "dev:server": "npm --prefix server run dev",
+    "dev:client": "npm --prefix client run dev",
+    "build": "npm --prefix server run build && npm --prefix client run build",
+    "typecheck": "npm --prefix server run typecheck && npm --prefix client run typecheck",
+    "seed": "npm --prefix server run seed",
+    "test": "npm --prefix server test",
+    "start": "npm --prefix server start",
+    "mcp:stdio": "npm --prefix server run mcp:stdio"
   },
-  "devDependencies": {
-    "concurrently": "^9.1.2"
-  }
+  "devDependencies": { "concurrently": "^9.1.2" }
 }

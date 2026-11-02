@@ -1,39 +1,37 @@
-# Node.js
-node_modules/
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-lerna-debug.log*
 
-# Environment
-.env
-.env.local
-.env.*.local
-
-# Build outputs
-dist/
-build/
 .cache/
-
-# Databases
-*.db
-*.sqlite
-*.sqlite3
-*.db-journal
-*.db-wal
-*.db-shm
-server/data/
-
-# Logs
-logs/
-*.log
-
-# OS files
 .DS_Store
-Thumbs.db
-
-# IDEs
+.env
+.env.*.local
+.env.local
 .idea/
 .vscode/
-*.swp
+*.db
+*.db-journal
+*.db-shm
+*.db-wal
+*.log
+*.sqlite
+*.sqlite3
 *.swo
+*.swp
+# Build outputs
+# CMI
+# Databases
+# Environment
+# IDEs
+# Logs
+# Node.js
+# OS files
+build/
+client/dist/
+dist/
+lerna-debug.log*
+logs/
+node_modules/
+npm-debug.log*
+server/data/
+server/dist/
+Thumbs.db
+yarn-debug.log*
+yarn-error.log*

@@ -1,99 +1,28 @@
 #!/usr/bin/env node
 /**
- * CMI Governed Model Context Protocol (MCP) stdio Transport Server
- * Standard MCP JSON-RPC 2.0 communication over standard input / output
- * Connect with Claude Desktop, Cursor, or any MCP client!
+ * CMI Governed MCP server over stdio.
+ *
+ * Add to Claude Desktop / Cursor / any MCP client:
+ *   { "command": "npx", "args": ["tsx", "/path/to/server/src/mcp/stdio.ts"],
+ *     "env": { "CMI_SESSION_ID": "sess_techpulse_operator" } }
+ *
+ * Every tool call is governed by the session's budget, rate and permission
+ * scope and appended to the immutable audit log.
  */
+import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
+import '../db/database';
+import { buildProtocolServer } from './protocol';
 
-import { mcpServerInstance } from './server';
-import readline from 'readline';
+const sessionId = process.env.CMI_SESSION_ID || 'sess_techpulse_operator';
 
-const rl = readline.createInterface({
-  input: process.stdin,
-  output: process.stdout,
-  terminal: false,
+async function main() {
+  const server = buildProtocolServer(sessionId);
+  const transport = new StdioServerTransport();
+  await server.connect(transport);
+  process.stderr.write(`CMI governed MCP server ready on stdio (session ${sessionId}).\n`);
+}
+
+main().catch((err) => {
+  process.stderr.write(`Fatal: ${err?.message ?? err}\n`);
+  process.exit(1);
 });
-
-const DEFAULT_SESSION_ID = process.env.CMI_SESSION_ID || 'sess_agent_cmi_alpha';
-
-rl.on('line', async (line) => {
-  if (!line.trim()) return;
-
-  try {
-    const request = JSON.parse(line);
-    const { id, method, params } = request;
-
-    if (method === 'initialize') {
-      const response = {
-        jsonrpc: '2.0',
-        id,
-        result: {
-          protocolVersion: '2024-11-05',
-          serverInfo: {
-            name: 'cmi-governed-mcp-server',
-            version: '1.0.0',
-          },
-          capabilities: {
-            tools: {},
-          },
-        },
-      };
-      process.stdout.write(JSON.stringify(response) + '\n');
-      return;
-    }
-
-    if (method === 'tools/list') {
-      const tools = mcpServerInstance.listTools();
-      const response = {
-        jsonrpc: '2.0',
-        id,
-        result: {
-          tools,
-        },
-      };
-      process.stdout.write(JSON.stringify(response) + '\n');
-      return;
-    }
-
-    if (method === 'tools/call') {
-      const { name, arguments: toolArgs } = params || {};
-      const sessionId = toolArgs?.session_id || DEFAULT_SESSION_ID;
-      const res = await mcpServerInstance.callTool(sessionId, name, toolArgs || {});
-
-      const response = {
-        jsonrpc: '2.0',
-        id,
-        result: {
-          content: [
-            {
-              type: 'text',
-              text: JSON.stringify(res, null, 2),
-            },
-          ],
-          isError: res.status !== 'SUCCESS',
-        },
-      };
-      process.stdout.write(JSON.stringify(response) + '\n');
-      return;
-    }
-
-    // Default unknown method
-    process.stdout.write(
-      JSON.stringify({
-        jsonrpc: '2.0',
-        id,
-        error: { code: -32601, message: `Method '${method}' not found` },
-      }) + '\n'
-    );
-  } catch (err: any) {
-    process.stdout.write(
-      JSON.stringify({
-        jsonrpc: '2.0',
-        id: null,
-        error: { code: -32700, message: `Parse error: ${err.message}` },
-      }) + '\n'
-    );
-  }
-});
-
-process.stderr.write('🚀 CMI MCP stdio server started. Listening on stdin...\n');

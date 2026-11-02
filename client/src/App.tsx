@@ -1,312 +1,95 @@
-import React, { useState, useEffect } from 'react';
-import { Navbar } from './components/Navbar';
-import { Sidebar } from './components/Sidebar';
-import { OverviewTab } from './components/OverviewTab';
-import { CampaignsTab } from './components/CampaignsTab';
-import { CreatorMarketplaceTab } from './components/CreatorMarketplaceTab';
-import { CollaborationsTab } from './components/CollaborationsTab';
-import { CheckpointsQueueTab } from './components/CheckpointsQueueTab';
-import { FinancialLedgerTab } from './components/FinancialLedgerTab';
-import { AuditLogTab } from './components/AuditLogTab';
-import { AgentHubTab } from './components/AgentHubTab';
-import { EvaluationLabTab } from './components/EvaluationLabTab';
-import { AgencyWorkspaceView } from './components/AgencyWorkspaceView';
-import { CreatorPortalView } from './components/CreatorPortalView';
-import { AgentRunnerModal } from './components/AgentRunnerModal';
-import { api } from './services/api';
-import {
-  Brand,
-  Agency,
-  Creator,
-  Campaign,
-  Collaboration,
-  ApprovalCheckpoint,
-  LedgerEntry,
-  AuditLog,
-  AgentSession,
-  EvaluationBenchmark,
-} from './types';
+import React, { Suspense, lazy, useEffect } from 'react';
+import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { useAuth, homeFor } from '@/store/auth';
+import { AppShell } from '@/components/layout/app-shell';
+import { LogoMark } from '@/components/ui/logo';
+import type { Role } from '@/types';
 
-export const App: React.FC = () => {
-  // Navigation & Role State
-  const [currentRole, setCurrentRole] = useState<'brand' | 'agency' | 'creator' | 'agent'>('brand');
-  const [activeTab, setActiveTab] = useState<string>('overview');
-  const [isAgentRunnerOpen, setIsAgentRunnerOpen] = useState<boolean>(false);
-  const [loading, setLoading] = useState<boolean>(true);
+const Login = lazy(() => import('@/pages/Login'));
+const Overview = lazy(() => import('@/pages/Overview'));
+const Campaigns = lazy(() => import('@/pages/campaigns/Campaigns'));
+const CampaignNew = lazy(() => import('@/pages/campaigns/CampaignNew'));
+const CampaignDetail = lazy(() => import('@/pages/campaigns/CampaignDetail'));
+const Creators = lazy(() => import('@/pages/creators/Creators'));
+const CreatorDetail = lazy(() => import('@/pages/creators/CreatorDetail'));
+const Collaborations = lazy(() => import('@/pages/collaborations/Collaborations'));
+const CollaborationDetail = lazy(() => import('@/pages/collaborations/CollaborationDetail'));
+const Approvals = lazy(() => import('@/pages/governance/Approvals'));
+const Finance = lazy(() => import('@/pages/governance/Finance'));
+const Audit = lazy(() => import('@/pages/governance/Audit'));
+const Agents = lazy(() => import('@/pages/agents/Agents'));
+const AgentSessionDetail = lazy(() => import('@/pages/agents/AgentSessionDetail'));
+const AgentRun = lazy(() => import('@/pages/agents/AgentRun'));
+const McpServer = lazy(() => import('@/pages/agents/McpServer'));
+const Evaluation = lazy(() => import('@/pages/agents/Evaluation'));
+const AgencyWorkspace = lazy(() => import('@/pages/agency/AgencyWorkspace'));
+const Settings = lazy(() => import('@/pages/Settings'));
+const CreatorHome = lazy(() => import('@/pages/creator/CreatorHome'));
+const CreatorOffers = lazy(() => import('@/pages/creator/CreatorOffers'));
+const CreatorOfferDetail = lazy(() => import('@/pages/creator/CreatorOfferDetail'));
+const CreatorWallet = lazy(() => import('@/pages/creator/CreatorWallet'));
+const CreatorProfile = lazy(() => import('@/pages/creator/CreatorProfile'));
+const NotFound = lazy(() => import('@/pages/NotFound'));
 
-  // Data Store
-  const [brands, setBrands] = useState<Brand[]>([]);
-  const [agencies, setAgencies] = useState<Agency[]>([]);
-  const [creators, setCreators] = useState<Creator[]>([]);
-  const [campaigns, setCampaigns] = useState<Campaign[]>([]);
-  const [collaborations, setCollaborations] = useState<Collaboration[]>([]);
-  const [checkpoints, setCheckpoints] = useState<ApprovalCheckpoint[]>([]);
-  const [ledgerEntries, setLedgerEntries] = useState<LedgerEntry[]>([]);
-  const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
-  const [agentSessions, setAgentSessions] = useState<AgentSession[]>([]);
-  const [benchmarks, setBenchmarks] = useState<EvaluationBenchmark[]>([]);
-
-  // Reload all data
-  const loadAllData = async () => {
-    try {
-      const [
-        brandsRes,
-        agenciesRes,
-        creatorsRes,
-        campaignsRes,
-        collabsRes,
-        chkRes,
-        ledgerRes,
-        auditRes,
-        sessionsRes,
-        benchmarksRes,
-      ] = await Promise.all([
-        api.getBrands(),
-        api.getAgencies(),
-        api.getCreators(),
-        api.getCampaigns(),
-        api.getCollaborations(),
-        api.getCheckpoints(),
-        api.getLedger(),
-        api.getAuditLogs(),
-        api.getAgentSessions(),
-        api.getBenchmarks(),
-      ]);
-
-      setBrands(brandsRes);
-      setAgencies(agenciesRes);
-      setCreators(creatorsRes);
-      setCampaigns(campaignsRes);
-      setCollaborations(collabsRes);
-      setCheckpoints(chkRes);
-      setLedgerEntries(ledgerRes);
-      setAuditLogs(auditRes);
-      setAgentSessions(sessionsRes);
-      setBenchmarks(benchmarksRes);
-    } catch (err) {
-      console.error('Failed to load CMI platform data:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    loadAllData();
-  }, []);
-
-  // Handlers
-  const handleCreateCampaign = async (campaignData: any) => {
-    await api.createCampaign(campaignData);
-    await loadAllData();
-  };
-
-  const handleSendOffer = async (offerData: any) => {
-    await api.callMcpTool('sess_agent_cmi_alpha', 'send_collaboration_offer', offerData);
-    await loadAllData();
-  };
-
-  const handleSubmitDeliverable = async (
-    deliverableId: string,
-    data: { content_url: string; caption?: string }
-  ) => {
-    await api.submitDeliverable(deliverableId, data);
-    await loadAllData();
-  };
-
-  const handleReleasePayment = async (
-    collaborationId: string,
-    deliverableId: string,
-    amount: number
-  ) => {
-    await api.callMcpTool('sess_agent_cmi_alpha', 'release_payment', {
-      collaboration_id: collaborationId,
-      deliverable_id: deliverableId,
-      amount,
-    });
-    await loadAllData();
-  };
-
-  const handleResolveCheckpoint = async (
-    id: string,
-    decision: 'APPROVED' | 'REJECTED',
-    notes?: string
-  ) => {
-    await api.resolveCheckpoint(id, decision, notes);
-    await loadAllData();
-  };
-
-  const handleRunAgent = async (
-    sessionId: string,
-    campaignId: string,
-    goalPrompt: string
-  ) => {
-    const summary = await api.runAgent(sessionId, campaignId, goalPrompt);
-    await loadAllData();
-    return summary;
-  };
-
-  const handleCallTool = async (sessionId: string, toolName: string, params: any) => {
-    const res = await api.callMcpTool(sessionId, toolName, params);
-    await loadAllData();
-    return res;
-  };
-
-  const handleRunSimulation = async (scenarioName?: string, count?: number) => {
-    await api.runSimulation(scenarioName, count);
-    await loadAllData();
-  };
-
-  const handleRoleChange = (role: 'brand' | 'agency' | 'creator' | 'agent') => {
-    setCurrentRole(role);
-    if (role === 'agency') {
-      setActiveTab('agency_workspace');
-    } else if (role === 'creator') {
-      setActiveTab('creator_portal');
-    } else if (role === 'agent') {
-      setActiveTab('agent_hub');
-    } else {
-      setActiveTab('overview');
-    }
-  };
-
-  const pendingCheckpointsCount = checkpoints.filter((c) => c.status === 'PENDING').length;
-
+function Splash() {
   return (
-    <div className="min-h-screen flex flex-col bg-slate-950 text-slate-100 font-sans">
-      {/* Top Navigation */}
-      <Navbar
-        currentRole={currentRole}
-        setCurrentRole={handleRoleChange}
-        pendingCheckpointsCount={pendingCheckpointsCount}
-        onOpenAgentRunner={() => setIsAgentRunnerOpen(true)}
-        onSelectTab={setActiveTab}
-      />
-
-      <div className="flex-1 flex max-w-7xl w-full mx-auto">
-        {/* Left Sidebar */}
-        <Sidebar
-          activeTab={activeTab}
-          setActiveTab={(tab) => {
-            setActiveTab(tab);
-            if (tab === 'agent_hub') setCurrentRole('agent');
-          }}
-          pendingCheckpointsCount={pendingCheckpointsCount}
-        />
-
-        {/* Main Content Area */}
-        <main className="flex-1 p-4 sm:p-6 lg:p-8 overflow-y-auto">
-          {loading ? (
-            <div className="flex items-center justify-center h-64 text-slate-500 text-sm">
-              <span className="w-4 h-4 rounded-full border-2 border-emerald-400 border-t-transparent animate-spin mr-2"></span>
-              Initializing Creator Marketing Infrastructure Core...
-            </div>
-          ) : (
-            <>
-              {/* Role-Specific Overrides */}
-              {activeTab === 'agency_workspace' && (
-                <AgencyWorkspaceView
-                  agencies={agencies}
-                  brands={brands}
-                  campaigns={campaigns}
-                  onSelectTab={setActiveTab}
-                />
-              )}
-
-              {activeTab === 'creator_portal' && (
-                <CreatorPortalView
-                  creators={creators}
-                  collaborations={collaborations}
-                  onRespondCollab={async (id, status) => {
-                    await api.respondCollaboration(id, status);
-                    await loadAllData();
-                  }}
-                  onSubmitDeliverable={handleSubmitDeliverable}
-                />
-              )}
-
-              {/* Standard Platform Tabs */}
-              {activeTab === 'overview' && (
-                <OverviewTab
-                  campaigns={campaigns}
-                  checkpoints={checkpoints}
-                  auditLogs={auditLogs}
-                  onOpenAgentRunner={() => setIsAgentRunnerOpen(true)}
-                  onSelectTab={setActiveTab}
-                />
-              )}
-
-              {activeTab === 'campaigns' && (
-                <CampaignsTab
-                  campaigns={campaigns}
-                  brands={brands}
-                  onCreateCampaign={handleCreateCampaign}
-                  onSelectTab={setActiveTab}
-                />
-              )}
-
-              {activeTab === 'creators' && (
-                <CreatorMarketplaceTab
-                  creators={creators}
-                  campaigns={campaigns}
-                  onSendOffer={handleSendOffer}
-                  onSelectTab={setActiveTab}
-                />
-              )}
-
-              {activeTab === 'collaborations' && (
-                <CollaborationsTab
-                  collaborations={collaborations}
-                  onSubmitDeliverable={handleSubmitDeliverable}
-                  onReleasePayment={handleReleasePayment}
-                  onSelectTab={setActiveTab}
-                />
-              )}
-
-              {activeTab === 'checkpoints' && (
-                <CheckpointsQueueTab
-                  checkpoints={checkpoints}
-                  onResolveCheckpoint={handleResolveCheckpoint}
-                />
-              )}
-
-              {activeTab === 'ledger' && (
-                <FinancialLedgerTab ledgerEntries={ledgerEntries} />
-              )}
-
-              {activeTab === 'audit' && (
-                <AuditLogTab auditLogs={auditLogs} />
-              )}
-
-              {activeTab === 'agent_hub' && (
-                <AgentHubTab
-                  agentSessions={agentSessions}
-                  onOpenAgentRunner={() => setIsAgentRunnerOpen(true)}
-                  onCallTool={handleCallTool}
-                />
-              )}
-
-              {activeTab === 'evaluation' && (
-                <EvaluationLabTab
-                  benchmarks={benchmarks}
-                  onRunSimulation={handleRunSimulation}
-                />
-              )}
-            </>
-          )}
-        </main>
+    <div className="flex min-h-screen items-center justify-center bg-background">
+      <div className="flex flex-col items-center gap-3 animate-fade-in">
+        <LogoMark size={40} />
+        <div className="h-1 w-24 overflow-hidden rounded-full bg-muted"><div className="h-full w-1/2 animate-[shimmer_1.2s_linear_infinite] rounded-full bg-primary" /></div>
       </div>
-
-      {/* Autonomous AI Marketing Agent Modal */}
-      <AgentRunnerModal
-        isOpen={isAgentRunnerOpen}
-        onClose={() => setIsAgentRunnerOpen(false)}
-        campaigns={campaigns}
-        agentSessions={agentSessions}
-        onRunAgent={handleRunAgent}
-        onSelectTab={setActiveTab}
-      />
     </div>
   );
-};
+}
 
-export default App;
+function RequireAuth({ roles, children }: { roles?: Role[]; children: React.ReactElement }) {
+  const status = useAuth((s) => s.status);
+  const me = useAuth((s) => s.me);
+  const location = useLocation();
+  if (status === 'idle' || status === 'loading') return <Splash />;
+  if (status === 'anonymous' || !me) return <Navigate to="/login" state={{ from: location.pathname }} replace />;
+  if (roles && !roles.includes(me.user.role) && me.user.role !== 'ADMIN') return <Navigate to={homeFor(me.user.role)} replace />;
+  return children;
+}
+
+const OPS: Role[] = ['BRAND', 'AGENCY', 'ADMIN'];
+const CREATOR: Role[] = ['CREATOR', 'ADMIN'];
+
+export function App() {
+  const bootstrap = useAuth((s) => s.bootstrap);
+  useEffect(() => { bootstrap(); }, [bootstrap]);
+
+  return (
+    <Suspense fallback={<Splash />}>
+      <Routes>
+        <Route path="/login" element={<Login />} />
+        <Route element={<RequireAuth><AppShell /></RequireAuth>}>
+          <Route path="/" element={<RequireAuth roles={OPS}><Overview /></RequireAuth>} />
+          <Route path="/campaigns" element={<RequireAuth roles={OPS}><Campaigns /></RequireAuth>} />
+          <Route path="/campaigns/new" element={<RequireAuth roles={OPS}><CampaignNew /></RequireAuth>} />
+          <Route path="/campaigns/:id" element={<RequireAuth roles={OPS}><CampaignDetail /></RequireAuth>} />
+          <Route path="/creators" element={<RequireAuth roles={OPS}><Creators /></RequireAuth>} />
+          <Route path="/creators/:id" element={<RequireAuth roles={OPS}><CreatorDetail /></RequireAuth>} />
+          <Route path="/collaborations" element={<RequireAuth roles={OPS}><Collaborations /></RequireAuth>} />
+          <Route path="/collaborations/:id" element={<RequireAuth roles={OPS}><CollaborationDetail /></RequireAuth>} />
+          <Route path="/approvals" element={<RequireAuth roles={OPS}><Approvals /></RequireAuth>} />
+          <Route path="/finance" element={<RequireAuth roles={OPS}><Finance /></RequireAuth>} />
+          <Route path="/audit" element={<RequireAuth roles={OPS}><Audit /></RequireAuth>} />
+          <Route path="/agents" element={<RequireAuth roles={OPS}><Agents /></RequireAuth>} />
+          <Route path="/agents/sessions/:id" element={<RequireAuth roles={OPS}><AgentSessionDetail /></RequireAuth>} />
+          <Route path="/agents/runs/:id" element={<RequireAuth roles={OPS}><AgentRun /></RequireAuth>} />
+          <Route path="/mcp" element={<RequireAuth roles={OPS}><McpServer /></RequireAuth>} />
+          <Route path="/evaluation" element={<RequireAuth roles={OPS}><Evaluation /></RequireAuth>} />
+          <Route path="/agency" element={<RequireAuth roles={['AGENCY', 'ADMIN']}><AgencyWorkspace /></RequireAuth>} />
+          <Route path="/settings" element={<Settings />} />
+          <Route path="/creator" element={<RequireAuth roles={CREATOR}><CreatorHome /></RequireAuth>} />
+          <Route path="/creator/offers" element={<RequireAuth roles={CREATOR}><CreatorOffers /></RequireAuth>} />
+          <Route path="/creator/offers/:id" element={<RequireAuth roles={CREATOR}><CreatorOfferDetail /></RequireAuth>} />
+          <Route path="/creator/wallet" element={<RequireAuth roles={CREATOR}><CreatorWallet /></RequireAuth>} />
+          <Route path="/creator/profile" element={<RequireAuth roles={CREATOR}><CreatorProfile /></RequireAuth>} />
+          <Route path="*" element={<NotFound />} />
+        </Route>
+      </Routes>
+    </Suspense>
+  );
+}
