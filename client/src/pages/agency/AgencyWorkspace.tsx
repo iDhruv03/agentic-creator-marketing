@@ -5,6 +5,7 @@ import { useAgencies, useCampaigns, useCheckpoints, useRuns } from '@/hooks/quer
 import { useAuth } from '@/store/auth';
 import { money, num, timeAgo, titleCase, cn } from '@/lib/utils';
 import { PageHeader } from '@/components/ui/page-header';
+import { QueryError } from '@/components/collaborations/QueryError';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardHeader, Section } from '@/components/ui/card';
@@ -55,6 +56,9 @@ export default function AgencyWorkspace() {
 
   if (agencies.isLoading) {
     return <div className="page"><PageHeader title={<Skeleton className="h-8 w-64" />} /><SkeletonCards /><div className="mt-6"><SkeletonCards count={3} className="xl:grid-cols-3" /></div></div>;
+  }
+  if (agencies.isError) {
+    return <div className="page"><PageHeader title="Agency workspace" /><QueryError what="your agency workspace" error={agencies.error} refetch={agencies.refetch} /></div>;
   }
   if (!agency) {
     return <div className="page"><PageHeader title="Agency workspace" /><EmptyState icon={Building2} title="No agency linked to your account" description="Ask an administrator to attach your user to an agency." /></div>;

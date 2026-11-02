@@ -60,24 +60,37 @@ export default function AgentRun() {
   const [stick, setStick] = React.useState(true);
   const [unseen, setUnseen] = React.useState(false);
   const lastCount = React.useRef(0);
+  // Scroll events fired by our own scrollTo (especially the intermediate frames of a smooth scroll) must not be
+  // mistaken for the user scrolling away — otherwise auto-follow switches itself off after the first card.
+  const programmatic = React.useRef<number | null>(null);
+  const scrollToBottom = React.useCallback((smooth: boolean) => {
+    const el = scrollRef.current;
+    if (!el) return;
+    // An instant scroll fires a single scroll event that already reads as "at bottom", so only smooth scrolls need the guard.
+    if (programmatic.current) window.clearTimeout(programmatic.current);
+    programmatic.current = smooth ? window.setTimeout(() => { programmatic.current = null; }, 700) : null;
+    el.scrollTo({ top: el.scrollHeight, behavior: smooth ? 'smooth' : 'auto' });
+  }, []);
+  React.useEffect(() => () => { if (programmatic.current) window.clearTimeout(programmatic.current); }, []);
   React.useEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
     if (events.length !== lastCount.current) {
       lastCount.current = events.length;
       if (!liveRunning) return;
-      if (stick) el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
+      if (stick) scrollToBottom(false);
       else setUnseen(true);
     }
-  }, [events.length, stick, filter, liveRunning]);
+  }, [events.length, stick, filter, liveRunning, scrollToBottom]);
   const onScroll = () => {
     const el = scrollRef.current;
     if (!el) return;
     const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 48;
+    if (programmatic.current && !atBottom) return;
     setStick(atBottom);
     if (atBottom) setUnseen(false);
   };
-  const jump = () => { const el = scrollRef.current; if (el) el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' }); setStick(true); setUnseen(false); };
+  const jump = () => { scrollToBottom(true); setStick(true); setUnseen(false); };
 
   if (run.isLoading) {
     return (
@@ -220,7 +233,7 @@ export default function AgentRun() {
           </Card>
 
           <Card>
-            <CardHeader title="Audit entries" description={`${audit.data?.total ?? 0} hash-chained records`} icon={<ScrollText className="h-4 w-4" />} action={<Button variant="ghost" size="sm" onClick={() => navigate(`/audit?run_id=${r.id}`)}>Open</Button>} />
+            <CardHeader title="Audit entries" description={`${audit.data?.total ?? 0} hash-chained record${(audit.data?.total ?? 0) === 1 ? '' : 's'}`} icon={<ScrollText className="h-4 w-4" />} action={<Button variant="ghost" size="sm" onClick={() => navigate(`/audit?run_id=${r.id}`)}>Open</Button>} />
             {audit.isLoading ? <SkeletonRows rows={3} /> : (audit.data?.items ?? []).length === 0 ? <EmptyState compact icon={ScrollText} title="No audit entries yet" /> : (
               <ul className="divide-y divide-border/70">
                 {[...(audit.data?.items ?? [])].reverse().map((a) => (

@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { ShieldCheck, Clock, CheckCircle2, XCircle, Coins, Inbox, Bot } from 'lucide-react';
+import { ShieldCheck, Clock, CheckCircle2, XCircle, Coins, Inbox, Bot, AlertTriangle } from 'lucide-react';
 import { useCheckpoints } from '@/hooks/queries';
 import type { Checkpoint, CheckpointAction } from '@/types';
 import { money, timeAgo, titleCase, cn } from '@/lib/utils';
@@ -8,6 +8,7 @@ import { PageHeader } from '@/components/ui/page-header';
 import { Stat, SkeletonCards, SkeletonRows, EmptyState } from '@/components/ui/feedback';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { SegmentedControl, Select } from '@/components/ui/field';
 import { Sheet } from '@/components/ui/overlay';
 import { CHECKPOINT_ACTION, CheckpointStatusBadge, RiskBadge } from '@/components/ui/status';
@@ -57,7 +58,7 @@ export default function Approvals() {
     <div className="page">
       <PageHeader title="Approvals" description="Agent actions held at a checkpoint. Approving executes the action on your authority; rejecting leaves every system untouched." meta={checkpoints.isLoading ? undefined : stats.pending > 0 ? <Badge tone="warning" size="lg" dot>{stats.pending} pending</Badge> : <Badge tone="success" size="lg" dot>Queue clear</Badge>} />
 
-      {checkpoints.isLoading ? <SkeletonCards /> : (
+      {checkpoints.isLoading ? <SkeletonCards /> : checkpoints.isError ? null : (
         <div className="grid grid-cols-2 gap-4 xl:grid-cols-4">
           <Stat size="sm" label="Pending" value={stats.pending} icon={Clock} tone="warning" hint="Waiting on you" />
           <Stat size="sm" label="Approved" value={stats.approved} icon={CheckCircle2} tone="success" hint="Executed by reviewers" />
@@ -74,7 +75,9 @@ export default function Approvals() {
             <Select size="sm" value={type} onValueChange={setType} options={ACTION_OPTIONS} allowEmpty="All types" placeholder="All types" className="w-auto min-w-[150px] flex-1" />
           </div>
           <Card padded={false} className="overflow-hidden">
-            {checkpoints.isLoading ? <div className="p-4"><SkeletonRows rows={4} /></div> : visible.length === 0 ? (
+            {checkpoints.isLoading ? <div className="p-4"><SkeletonRows rows={4} /></div> : checkpoints.isError ? (
+              <div className="p-4"><EmptyState compact icon={AlertTriangle} title="Couldn't load checkpoints" description={checkpoints.error instanceof Error ? checkpoints.error.message : 'Try again in a moment.'} action={<Button size="sm" variant="secondary" onClick={() => checkpoints.refetch()}>Retry</Button>} /></div>
+            ) : visible.length === 0 ? (
               <div className="p-4">
                 {filter === 'PENDING' && !type ? <EmptyState compact icon={ShieldCheck} title="Agents are operating inside policy" description="No actions are waiting for approval. Anything above a ceiling or threshold will land here." /> : <EmptyState compact icon={Inbox} title="No checkpoints match" description="Try another status or action type." />}
               </div>

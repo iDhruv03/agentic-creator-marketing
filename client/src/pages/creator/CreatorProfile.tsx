@@ -6,6 +6,7 @@ import { api } from '@/lib/api';
 import type { Creator, PortfolioItem } from '@/types';
 import { platformLabel, cn } from '@/lib/utils';
 import { PageHeader } from '@/components/ui/page-header';
+import { QueryError } from '@/components/collaborations/QueryError';
 import { Card, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -74,6 +75,9 @@ export default function CreatorProfile() {
 
   const save = useAction((patch: Patch) => sendPatch(patch), { invalidate: ['creator', 'creators', 'benchmark'], success: 'Media kit saved', onSuccess: (c) => { setForm(toForm(c)); refresh(); } });
 
+  if (creator.isError) {
+    return <div className="page"><PageHeader title="Media kit" description="How brands and their agents see you." /><QueryError what="your media kit" error={creator.error} refetch={creator.refetch} /></div>;
+  }
   if (creator.isLoading || !form || !creator.data) {
     return <div className="page"><PageHeader title="Media kit" description="How brands and their agents see you." /><div className="grid gap-6 lg:grid-cols-5"><div className="space-y-6 lg:col-span-3"><div className="card p-5"><SkeletonRows rows={4} /></div><div className="card p-5"><SkeletonRows rows={4} /></div></div><div className="lg:col-span-2"><div className="card p-5"><SkeletonRows rows={6} /></div></div></div></div>;
   }

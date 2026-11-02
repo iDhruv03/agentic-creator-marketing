@@ -35,7 +35,7 @@ export function CampaignContentTab({ campaign }: { campaign: Campaign }) {
     { key: 'compliance', header: 'Compliance', render: (r) => r.compliance ? <div className="flex items-center gap-2"><Score value={r.compliance.score} size="sm" label={`${r.compliance.checks.filter((c) => c.passed).length}/${r.compliance.checks.length} checks passed`} />{r.compliance.passed ? <Badge tone="success" size="sm"><CheckCircle2 className="h-3 w-3" />Pass</Badge> : <Badge tone="danger" size="sm"><XCircle className="h-3 w-3" />Fail</Badge>}</div> : <span className="text-xs text-muted-foreground">—</span>, sortValue: (r) => r.compliance?.score ?? -1 },
     { key: 'views', header: 'Views', align: 'right', render: (r) => <span className="tabular-nums">{r.metrics ? num(r.metrics.views, { compact: true }) : '—'}</span>, sortValue: (r) => r.metrics?.views ?? -1 },
     { key: 'er', header: 'Eng.', align: 'right', render: (r) => <span className="tabular-nums">{r.metrics ? pct(r.metrics.engagement_rate) : '—'}</span>, sortValue: (r) => r.metrics?.engagement_rate ?? -1 },
-    { key: 'link', header: '', align: 'right', render: (r) => <LinkCell row={r} /> },
+    { key: 'link', header: <span className="relative inline-block"><span className="sr-only">Links</span></span>, align: 'right', render: (r) => <LinkCell row={r} /> },
   ];
 
   if (!rows.length) return <EmptyState icon={Film} title="No deliverables yet" description="Deliverables are created when an offer is accepted. Creators submit content here for compliance checks and your review." />;

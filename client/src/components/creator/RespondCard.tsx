@@ -49,13 +49,13 @@ export function RespondCard({ collab, creator }: { collab: Collaboration; creato
               <div className="mt-0.5 font-display text-2xl font-semibold tabular-nums">{money(rate)}</div>
               <div className="text-xs text-muted-foreground">{deliverables.join(' + ')}{collab.deadline ? ` · due ${fmtDate(collab.deadline)}` : ''}</div>
             </div>
-            <Button variant="success" className="w-full" leftIcon={<Check className="h-4 w-4" />} onClick={() => setAccepting(true)}>Accept {money(rate)}</Button>
+            <Button variant="success" className="w-full tabular-nums" leftIcon={<Check className="h-4 w-4" />} onClick={() => setAccepting(true)}>Accept {money(rate)}</Button>
             <Button variant="secondary" className="w-full" leftIcon={<ArrowLeftRight className="h-4 w-4" />} onClick={() => setCountering(true)}>Counter</Button>
             <Button variant="ghost" className="w-full text-danger hover:bg-danger-soft" leftIcon={<X className="h-4 w-4" />} onClick={() => setDeclining(true)}>Decline</Button>
           </div>
         ) : (
           <div className="space-y-3">
-            <Callout tone="warning" icon={Hourglass} title={`You countered at ${money(last?.amount ?? rate)}`}>Waiting for {collab.brand_name ?? 'the brand'} to accept, counter or withdraw. You will be notified.</Callout>
+            <Callout tone="warning" icon={Hourglass} title={<span className="tabular-nums">You countered at {money(last?.amount ?? rate)}</span>}>Waiting for {collab.brand_name ?? 'the brand'} to accept, counter or withdraw. You will be notified.</Callout>
             <Button variant="ghost" size="sm" className="w-full text-danger hover:bg-danger-soft" onClick={() => setDeclining(true)}>Withdraw and decline</Button>
           </div>
         )}
@@ -118,7 +118,7 @@ export function RespondCard({ collab, creator }: { collab: Collaboration; creato
   return (
     <Card>
       <CardHeader title={c.title} description={c.body} icon={<Clock className="h-4 w-4" />} />
-      {collab.escrow_held > 0 && <div className="flex items-center gap-2 text-xs text-success"><Lock className="h-3.5 w-3.5" />{money(collab.escrow_held)} still secured in escrow</div>}
+      {collab.escrow_held > 0 && <div className="flex items-center gap-2 text-xs tabular-nums text-success"><Lock className="h-3.5 w-3.5" />{money(collab.escrow_held)} still secured in escrow</div>}
     </Card>
   );
 }

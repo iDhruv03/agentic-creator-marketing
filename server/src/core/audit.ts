@@ -110,6 +110,8 @@ export interface AuditQuery {
   status?: string;
   tool_name?: string;
   search?: string;
+  /** Visibility scope: entries for these campaigns, or session-level entries for these sessions. */
+  scope?: { campaign_ids: string[]; session_ids: string[] };
   limit?: number;
   offset?: number;
 }
@@ -123,6 +125,12 @@ export function listAudit(q: AuditQuery = {}): { items: AuditRecord[]; total: nu
   if (q.actor_type) { where.push('actor_type = ?'); params.push(q.actor_type); }
   if (q.status) { where.push('execution_status = ?'); params.push(q.status); }
   if (q.tool_name) { where.push('tool_name = ?'); params.push(q.tool_name); }
+  if (q.scope) {
+    const c = q.scope.campaign_ids.length ? `campaign_id IN (${q.scope.campaign_ids.map(() => '?').join(',')})` : '0';
+    const se = q.scope.session_ids.length ? `(campaign_id IS NULL AND session_id IN (${q.scope.session_ids.map(() => '?').join(',')}))` : '0';
+    where.push(`(${c} OR ${se})`);
+    params.push(...q.scope.campaign_ids, ...q.scope.session_ids);
+  }
   if (q.search) {
     where.push('(result_summary LIKE ? OR guardrail_notes LIKE ? OR parameters_json LIKE ? OR actor_id LIKE ?)');
     const s = `%${q.search}%`;

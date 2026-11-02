@@ -68,7 +68,7 @@ export default function AgentSessionDetail() {
         crumbs={[{ label: 'Agents', to: '/agents' }, { label: s.name }]}
         title={s.name}
         meta={<span className="flex flex-wrap items-center gap-1.5"><SessionStatusBadge status={s.status} /><ScopeBadge scope={s.role_scope} /></span>}
-        description={<span>{s.brand_name ?? 'Any brand'}{s.campaign_id ? <> · bound to <Link to={`/campaigns/${s.campaign_id}`} className="text-foreground hover:text-primary">{s.campaign_title ?? s.campaign_id}</Link></> : ' · any campaign of this brand'} · created {timeAgo(s.created_at)}</span>}
+        description={<span>{s.brand_name ?? 'Any brand'}{s.campaign_id ? <> · bound to <Link to={`/campaigns/${s.campaign_id}`} className="font-medium text-primary underline-offset-2 hover:underline">{s.campaign_title ?? s.campaign_id}</Link></> : ' · any campaign of this brand'} · created {timeAgo(s.created_at)}</span>}
         actions={<>
           <Button variant="secondary" leftIcon={<Pencil className="h-4 w-4" />} onClick={() => setEditOpen(true)} disabled={s.status === 'REVOKED'}>Edit</Button>
           <Button variant="secondary" leftIcon={s.status === 'PAUSED' ? <PlayCircle className="h-4 w-4" /> : <PauseCircle className="h-4 w-4" />} disabled={!(s.status === 'ACTIVE' || s.status === 'PAUSED')} loading={actions.pending} onClick={actions.pauseOrResume}>{s.status === 'PAUSED' ? 'Resume' : 'Pause'}</Button>
@@ -88,7 +88,7 @@ export default function AgentSessionDetail() {
         <div className="space-y-6 xl:col-span-2">
           <Card>
             <CardHeader title="Runs" description="Every run streams its reasoning, tool calls and governance decisions." action={<Button size="sm" variant="agent" disabled={s.status !== 'ACTIVE'} leftIcon={<Play className="h-3.5 w-3.5" />} onClick={() => setLaunchOpen(true)}>Launch run</Button>} />
-            <DataTable className="rounded-xl shadow-none" rows={runs} columns={runColumns} rowKey={(r) => r.id} onRowClick={(r) => navigate(`/agents/runs/${r.id}`)} empty={<EmptyState compact icon={Play} title="No runs yet" description="Launch a run to see this agent work inside its policy." />} />
+            <DataTable className="rounded-xl" rows={runs} columns={runColumns} rowKey={(r) => r.id} onRowClick={(r) => navigate(`/agents/runs/${r.id}`)} empty={<EmptyState compact icon={Play} title="No runs yet" description="Launch a run to see this agent work inside its policy." />} />
           </Card>
 
           <Card>
@@ -130,11 +130,11 @@ export default function AgentSessionDetail() {
             <div className="mb-4">
               <div className="mb-1.5 flex items-center justify-between text-xs"><span className="text-muted-foreground">Budget ceiling</span><span className="font-medium tabular-nums">{money(s.spent_amount)} / {money(s.budget_ceiling)}</span></div>
               <Progress value={pctUsed} tone={pctUsed > 90 ? 'danger' : pctUsed > 70 ? 'warning' : 'agent'} />
-              <div className="mt-1 text-[11px] text-muted-foreground">{money(Math.max(0, s.budget_ceiling - s.spent_amount))} headroom · hard block above</div>
+              <div className="mt-1 text-[11px] tabular-nums text-muted-foreground">{money(Math.max(0, s.budget_ceiling - s.spent_amount))} headroom · hard block above</div>
             </div>
             <KeyValue items={[
-              { label: 'Rate ceiling', value: <span>{money(s.rate_ceiling)} <span className="text-xs text-muted-foreground">per collaboration · checkpoint above</span></span> },
-              { label: 'Payment threshold', value: scopes.data ? <span>{money(scopes.data.payment_threshold)} <span className="text-xs text-muted-foreground">autonomous payout limit</span></span> : '—' },
+              { label: 'Rate ceiling', value: <span className="tabular-nums">{money(s.rate_ceiling)} <span className="text-xs text-muted-foreground">per collaboration · checkpoint above</span></span> },
+              { label: 'Payment threshold', value: scopes.data ? <span className="tabular-nums">{money(scopes.data.payment_threshold)} <span className="text-xs text-muted-foreground">autonomous payout limit</span></span> : '—' },
               { label: 'Scope', value: <span>{SCOPE_META[s.role_scope].label} <span className="text-xs text-muted-foreground">· {SCOPE_META[s.role_scope].description}</span></span> },
               { label: 'Campaign binding', value: s.campaign_id ? <Link to={`/campaigns/${s.campaign_id}`} className="hover:text-primary">{s.campaign_title ?? s.campaign_id}</Link> : <span className="text-muted-foreground">Any campaign of {s.brand_name ?? 'the brand'}</span> },
               { label: 'Model', value: s.model, mono: true },

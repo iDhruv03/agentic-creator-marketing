@@ -2,15 +2,13 @@ import { Link } from 'react-router-dom';
 import { ArrowRight, Wallet, Lock, CheckCircle2, PiggyBank, BookOpen } from 'lucide-react';
 import type { Campaign, LedgerEntry } from '@/types';
 import { useCampaignLedger } from '@/hooks/queries';
-import { money, pct, fmtDateTime, titleCase } from '@/lib/utils';
+import { money, pct, fmtDateTime } from '@/lib/utils';
 import { Stat, SkeletonRows, EmptyState } from '@/components/ui/feedback';
-import { Card, CardHeader } from '@/components/ui/card';
-import { Badge, type BadgeProps } from '@/components/ui/badge';
+import { Card, CardHeader, Section } from '@/components/ui/card';
 import { DataTable, type Column, Mono } from '@/components/ui/data';
 import { Donut, CHART } from '@/components/ui/charts';
 import { ActorBadge } from '@/components/ui/status';
-
-const ENTRY_TONE: Record<LedgerEntry['entry_type'], NonNullable<BadgeProps['tone']>> = { BUDGET_ALLOCATION: 'primary', BUDGET_ADJUSTMENT: 'info', ESCROW_HOLD: 'warning', ESCROW_RELEASE: 'success', ESCROW_REFUND: 'neutral', PAYOUT_RELEASE: 'success' };
+import { EntryTypeBadge } from '@/components/governance/ledger-utils';
 
 export function CampaignBudgetTab({ campaign }: { campaign: Campaign }) {
   const ledger = useCampaignLedger(campaign.id);
@@ -19,7 +17,7 @@ export function CampaignBudgetTab({ campaign }: { campaign: Campaign }) {
 
   const columns: Column<LedgerEntry>[] = [
     { key: 'seq', header: '#', width: '56px', render: (e) => <Mono>{String(e.seq)}</Mono>, sortValue: (e) => e.seq },
-    { key: 'type', header: 'Entry', render: (e) => <Badge tone={ENTRY_TONE[e.entry_type] ?? 'neutral'} size="sm">{titleCase(e.entry_type)}</Badge>, sortValue: (e) => e.entry_type },
+    { key: 'type', header: 'Entry', render: (e) => <EntryTypeBadge type={e.entry_type} />, sortValue: (e) => e.entry_type },
     { key: 'amount', header: 'Amount', align: 'right', render: (e) => <span className="font-semibold tabular-nums">{money(e.amount)}</span>, sortValue: (e) => e.amount },
     { key: 'accounts', header: 'Debit → Credit', render: (e) => <div className="flex min-w-[200px] max-w-[320px] flex-col gap-0.5 font-mono text-[11.5px] leading-tight text-muted-foreground"><span className="break-all">{e.debit_account}</span><span className="flex items-center gap-1 break-all"><ArrowRight className="h-3 w-3 shrink-0" />{e.credit_account}</span></div> },
     { key: 'actor', header: 'Actor', render: (e) => <ActorBadge type={e.actor_type} name={e.actor_type === 'AGENT' ? 'Agent' : e.actor_type === 'SYSTEM' ? 'System' : 'Human'} size="sm" /> },
@@ -46,10 +44,9 @@ export function CampaignBudgetTab({ campaign }: { campaign: Campaign }) {
             </div>
           </div>
         </Card>
-        <div className="xl:col-span-2">
-          <div className="mb-3 flex items-end justify-between gap-4"><div><h3 className="text-[15px] font-semibold">Ledger</h3><p className="text-[13px] text-muted-foreground">Double-entry, append-only. Every hold, release and payout for this campaign.</p></div><Link to="/finance" className="text-xs font-medium text-primary hover:underline">All finance</Link></div>
+        <Section className="xl:col-span-2" title="Ledger" description="Double-entry, append-only. Every hold, release and payout for this campaign." action={<Link to="/finance" className="text-xs font-medium text-primary hover:underline">All finance</Link>}>
           {ledger.isLoading ? <Card><SkeletonRows rows={5} /></Card> : (ledger.data ?? []).length === 0 ? <EmptyState compact icon={BookOpen} title="No ledger entries" description="The budget allocation appears here once the campaign is created." /> : <DataTable rows={[...(ledger.data ?? [])].sort((a, b) => b.seq - a.seq)} columns={columns} rowKey={(e) => e.id} dense />}
-        </div>
+        </Section>
       </div>
     </div>
   );

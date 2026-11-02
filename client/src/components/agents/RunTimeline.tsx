@@ -4,8 +4,7 @@ import { Brain, Bot, Wrench, ShieldAlert, ShieldX, CheckCircle2, AlertTriangle, 
 import { cn, money, num, fmtDateTime } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { Spinner } from '@/components/ui/feedback';
-import { Mono } from '@/components/ui/data';
-import { JsonBlock } from './JsonBlock';
+import { Mono, JsonView } from '@/components/ui/data';
 import { ExecStatusBadge, ToolChip } from '@/components/ui/status';
 import { Tooltip } from '@/components/ui/overlay';
 import type { RunEvent, ExecutionStatus } from '@/types';
@@ -126,13 +125,13 @@ function ToolCard({ item, collapseAll, running }: { item: Extract<TimelineItem, 
         <div className="space-y-2.5 px-3.5 py-3">
           <div>
             <div className="mb-1 text-[11px] font-medium text-muted-foreground">Input</div>
-            <JsonBlock key={`in-${jsonKey}`} value={p.input ?? {}} collapsed={inputCollapsed} maxHeight={240} />
+            <JsonView key={`in-${jsonKey}`} value={p.input ?? {}} collapsed={inputCollapsed} maxHeight={240} label={`Input of step ${p.step ?? ''}`.trim()} />
           </div>
           {result && (
             <div>
               <div className="mb-1 text-[11px] font-medium text-muted-foreground">Result</div>
               {summary && <div className={cn('mb-1.5 text-[13px] leading-snug', outcome === 'blocked' ? 'text-danger' : outcome === 'held' ? 'text-warning' : 'text-foreground/90')}>{summary}</div>}
-              <JsonBlock key={`out-${jsonKey}`} value={r?.result ?? {}} collapsed maxHeight={280} />
+              <JsonView key={`out-${jsonKey}`} value={r?.result ?? {}} collapsed maxHeight={280} label={`Result of step ${p.step ?? ''}`.trim()} />
               {(rules?.length || r?.guardrail_notes) && (
                 <div className="mt-2 flex flex-col gap-1.5">
                   {rules?.length ? <div className="flex flex-wrap items-center gap-1.5"><span className="text-[11px] text-muted-foreground">Rules evaluated</span><RulesChips rules={rules} firedIndex={outcome === 'held' || outcome === 'blocked' ? rules.length - 1 : undefined} /></div> : null}
@@ -228,7 +227,7 @@ function EventCard({ event }: { event: RunEvent }) {
     default:
       return (
         <Row node={<Node tone="neutral" icon={<Bot />} />}>
-          <JsonBlock value={event.payload} collapsed />
+          <JsonView value={event.payload} collapsed label={`${event.type} event payload`} />
         </Row>
       );
   }

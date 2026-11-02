@@ -3,6 +3,7 @@ import { Save } from 'lucide-react';
 import type { Campaign } from '@/types';
 import { useAction } from '@/hooks/queries';
 import { api } from '@/lib/api';
+import { money } from '@/lib/utils';
 import { Sheet } from '@/components/ui/overlay';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, PillTabsList, PillTabsTrigger } from '@/components/ui/tabs';
@@ -52,7 +53,7 @@ export function EditBriefSheet({ campaign, open, onOpenChange, initialTab = 'bri
           <TabsContent value="basics" className="mt-4"><BasicsFields form={form} set={set} errors={errors} lockedBrandName={campaign.brand_name ?? 'Brand'} /></TabsContent>
           <TabsContent value="brief" className="mt-4"><BriefFields form={form} set={set} errors={errors} /></TabsContent>
           <TabsContent value="budget" className="mt-4">
-            {campaign.financials.committed > 0 && <Callout tone="info" className="mb-4">Budget cannot drop below the {campaign.financials.committed.toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 })} already committed (escrow + paid). The difference is posted as a budget adjustment in the ledger.</Callout>}
+            {campaign.financials.committed > 0 && <Callout tone="info" className="mb-4">Budget cannot drop below the {money(campaign.financials.committed)} already committed (escrow + paid). The difference is posted as a budget adjustment in the ledger.</Callout>}
             <BudgetFields form={form} set={set} errors={errors} />
           </TabsContent>
         </Tabs>

@@ -4,12 +4,14 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RTooltip } from 
 import { FlaskConical, Play, Clock, Users, Target, Sparkles, Cpu, ArrowRight, Bot } from 'lucide-react';
 import { toast } from 'sonner';
 import { api } from '@/lib/api';
-import { useEvaluation, useScopes, useAction } from '@/hooks/queries';
+import { useEvaluation, useScopes, useAction, useBrands } from '@/hooks/queries';
+import { useAuth } from '@/store/auth';
 import { cn, money, num, pct, duration, minutes, fmtDateTime, platformLabel } from '@/lib/utils';
 import { PageHeader } from '@/components/ui/page-header';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Card, Section } from '@/components/ui/card';
+import { Card, CardHeader, Section } from '@/components/ui/card';
+import { QueryError } from '@/components/collaborations/QueryError';
 import { Callout, EmptyState, SkeletonCards, Skeleton } from '@/components/ui/feedback';
 import { SegmentedControl } from '@/components/ui/field';
 import { ChartFrame, ChartTooltip, CHART } from '@/components/ui/charts';
@@ -44,17 +46,11 @@ function CompareTile({ label, icon: Icon, manual, agentic, delta, deltaPositive,
   );
 }
 
-function ScenarioCard({ sc, latest, onRun, running }: { sc: Scenario; latest?: { manual?: EvaluationRun; agentic?: EvaluationRun }; onRun: (key: string, mode: Mode) => void; running: boolean }) {
+function ScenarioCard({ sc, latest, onRun, running, inScope, brandName }: { sc: Scenario; latest?: { manual?: EvaluationRun; agentic?: EvaluationRun }; onRun: (key: string, mode: Mode) => void; running: boolean; inScope: boolean; brandName?: string }) {
   const [mode, setMode] = React.useState<Mode>('AUTO');
   return (
     <Card className={cn('flex flex-col', running && 'border-agent/50 ring-4 ring-agent/10')}>
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <h3 className="text-[15px] font-semibold leading-tight">{sc.name}</h3>
-          <p className="mt-1 text-[13px] text-muted-foreground">{sc.description}</p>
-        </div>
-        <PlatformIcons platforms={sc.platforms} />
-      </div>
+      <CardHeader className="mb-0" title={sc.name} description={sc.description} action={<PlatformIcons platforms={sc.platforms} />} />
       <dl className="mt-4 grid grid-cols-2 gap-x-4 gap-y-2.5 text-[12.5px] sm:grid-cols-3">
         <div><dt className="text-[10.5px] uppercase tracking-wider text-muted-foreground">Niche</dt><dd className="font-medium">{sc.niche}</dd></div>
         <div><dt className="text-[10.5px] uppercase tracking-wider text-muted-foreground">Budget</dt><dd className="font-medium tabular-nums">{money(sc.budget)}</dd></div>
@@ -81,7 +77,11 @@ function ScenarioCard({ sc, latest, onRun, running }: { sc: Scenario; latest?: {
 
       <div className="mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-border pt-4">
         <SegmentedControl size="sm" value={mode} onChange={setMode} options={[{ value: 'AUTO', label: 'Auto', icon: <Sparkles className="h-3 w-3" /> }, { value: 'SIMULATED', label: 'Simulated', icon: <Cpu className="h-3 w-3" /> }]} />
-        <Button size="sm" variant="agent" leftIcon={<Play className="h-3.5 w-3.5" />} loading={running} onClick={() => onRun(sc.key, mode)}>{running ? 'Running scenario…' : 'Run scenario'}</Button>
+        {inScope ? (
+          <Button size="sm" variant="agent" leftIcon={<Play className="h-3.5 w-3.5" />} loading={running} onClick={() => onRun(sc.key, mode)}>{running ? 'Running scenario…' : 'Run scenario'}</Button>
+        ) : (
+          <Tooltip content={`Runs against ${brandName ?? sc.brand_id}, which is outside your workspace`}><span><Button size="sm" variant="secondary" disabled leftIcon={<Play className="h-3.5 w-3.5" />}>Outside your workspace</Button></span></Tooltip>
+        )}
       </div>
       {running && <p className="mt-2 text-xs text-muted-foreground">Creating a sandbox campaign and session, then running the agent against the live MCP server. Usually 5–20 seconds.</p>}
     </Card>
@@ -92,6 +92,11 @@ export default function Evaluation() {
   const navigate = useNavigate();
   const evaluation = useEvaluation();
   const scopes = useScopes();
+  const me = useAuth((st) => st.me);
+  const brands = useBrands();
+  const brandIds = React.useMemo(() => new Set((brands.data ?? []).map((b) => b.id)), [brands.data]);
+  const inScope = (sc: Scenario) => me?.user.role === 'ADMIN' || brandIds.has(sc.brand_id);
+  const brandName = (sc: Scenario) => sc.brand_name;
   const [runningKey, setRunningKey] = React.useState<string | null>(null);
   const [lastResult, setLastResult] = React.useState<{ scenario: string; agent_run_id: string; campaign_id: string; manual: EvaluationRun; agentic: EvaluationRun } | null>(null);
 
@@ -121,7 +126,8 @@ export default function Evaluation() {
 
   const chartRows = (d?.scenarios ?? []).map((sc) => {
     const pair = latestBy.get(sc.key);
-    const short = sc.name.replace(/\s*\(.*\)/, '');
+    // Two-word tick labels: full names collide on the x-axis once four scenarios sit side by side.
+    const short = sc.name.replace(/\s*\(.*\)/, '').split(' ').slice(0, 2).join(' ');
     return { name: short, manual_hours: (pair?.manual?.time_to_launch_sec ?? 0) / 3600, agentic_min: (pair?.agentic?.time_to_launch_sec ?? 0) / 60, manual_min: pair?.manual?.human_minutes ?? 0, agentic_human: pair?.agentic?.human_minutes ?? 0, manual_acc: pair?.manual?.matching_accuracy_pct ?? 0, agentic_acc: pair?.agentic?.matching_accuracy_pct ?? 0 };
   }).filter((r) => r.manual_hours || r.agentic_min);
 
@@ -150,7 +156,7 @@ export default function Evaluation() {
           Each scenario is run twice. The <strong>agentic</strong> workflow is measured live: a sandbox campaign and a CAMPAIGN_MANAGER session are created and the agent runs against the governed MCP server — time to the first accepted offer, checkpoints raised and shortlist quality are recorded. The <strong>manual</strong> baseline is a time-and-motion model (6.5 min per creator reviewed, 45 min brief, 25 min per outreach, 35 min coordination, with reply latency across working days). Matching accuracy is the share of shortlisted creators clearing the 70-point reviewer bar.
         </Callout>
 
-        {evaluation.isLoading ? <SkeletonCards count={3} className="xl:grid-cols-3" /> : d && d.manual.runs > 0 ? (
+        {evaluation.isLoading ? <SkeletonCards count={3} className="xl:grid-cols-3" /> : evaluation.isError ? <QueryError what="evaluation results" error={evaluation.error} refetch={evaluation.refetch} /> : d && d.manual.runs > 0 ? (
           <div className="grid gap-4 md:grid-cols-3">
             <CompareTile label="Time to launch" icon={Clock} manual={duration(d.manual.time_to_launch_sec)} agentic={duration(d.agentic.time_to_launch_sec)} delta={`−${d.delta.time_to_launch_pct}%`} deltaPositive={d.delta.time_to_launch_pct > 0} unit="elapsed to first offer" />
             <CompareTile label="Human labour" icon={Users} manual={minutes(d.manual.human_minutes)} agentic={minutes(d.agentic.human_minutes)} delta={`−${d.delta.human_minutes_pct}%`} deltaPositive={d.delta.human_minutes_pct > 0} unit="minutes of operator time" />
@@ -210,7 +216,7 @@ export default function Evaluation() {
         <Section title="Scenarios" description="Each run creates a sandbox campaign and a scoped session, so production campaigns are never touched.">
           {evaluation.isLoading ? <SkeletonCards count={3} className="xl:grid-cols-3" /> : (
             <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-              {(d?.scenarios ?? []).map((sc) => <ScenarioCard key={sc.key} sc={sc} latest={latestBy.get(sc.key)} onRun={onRun} running={runningKey === sc.key} />)}
+              {(d?.scenarios ?? []).map((sc) => <ScenarioCard key={sc.key} sc={sc} latest={latestBy.get(sc.key)} onRun={onRun} running={runningKey === sc.key} inScope={inScope(sc)} brandName={brandName(sc)} />)}
             </div>
           )}
         </Section>

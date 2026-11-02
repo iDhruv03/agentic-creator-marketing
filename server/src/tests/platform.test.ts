@@ -156,6 +156,16 @@ describe('Immutable audit trail', () => {
     assert.throws(() => db.exec(`UPDATE audit_logs SET result_summary = 'x' WHERE seq = 1`), /append-only/);
     assert.throws(() => db.exec(`DELETE FROM audit_logs WHERE seq = 1`), /append-only/);
   });
+  test('scoped audit listing paginates inside the scope', () => {
+    const scope = { campaign_ids: ['camp_glow_radiance'], session_ids: ['sess_glow_scout'] };
+    const page = listAudit({ scope, limit: 3, offset: 0 });
+    assert.ok(page.total >= 4, 'glow has audit history');
+    assert.equal(page.items.length, 3);
+    assert.ok(page.items.every((i) => i.campaign_id === 'camp_glow_radiance' || (i.campaign_id === null && i.session_id === 'sess_glow_scout')));
+    const all = listAudit({ scope, limit: 1000 });
+    assert.equal(all.items.length, all.total);
+    assert.equal(listAudit({ scope: { campaign_ids: [], session_ids: [] } }).total, 0);
+  });
   test('held and rejected calls are logged with guardrail notes', () => {
     const held = listAudit({ status: 'HELD_FOR_APPROVAL', limit: 5 }).items;
     assert.ok(held.length > 0);
@@ -226,6 +236,16 @@ describe('Marketplace intelligence', () => {
     const jax = rows.find((r) => r.id === 'cr_jaxson')!;
     assert.ok(elena.match_score > jax.match_score);
     assert.ok(elena.match_reasons.length > 0);
+  });
+  test('India market creators are discoverable by audience country and score well for the Zestra brief', () => {
+    const india = searchCreators({ country: 'India', limit: 50 });
+    assert.ok(india.length >= 8, `expected Indian creators, got ${india.length}`);
+    assert.ok(india.every((c) => c.audience.countries.some((x) => x.name === 'India')), 'every hit has an India audience segment');
+    assert.ok(india.filter((c) => c.audience.countries[0]?.name === 'India').length >= 8, 'at least eight India-majority creators');
+    const scored = searchCreators({ campaign_id: 'camp_zestra_ritual', niche: 'Beauty & Skincare', limit: 50 });
+    const ananya = scored.find((c) => c.id === 'cr_ananya')!;
+    assert.ok(ananya.match_score >= 80, `ananya scored ${ananya.match_score}`);
+    assert.ok(ananya.match_reasons.some((r) => /India/.test(r)), 'audience reason mentions India');
   });
   test('rate benchmark returns percentiles for a tier', () => {
     const b = rateBenchmark({ follower_count: 200000, deliverable: 'video', niche: 'Tech' });

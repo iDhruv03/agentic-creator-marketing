@@ -9,7 +9,7 @@ import { PageHeader } from '@/components/ui/page-header';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Avatar } from '@/components/ui/avatar';
-import { Card, CardHeader } from '@/components/ui/card';
+import { Card, CardHeader, Section } from '@/components/ui/card';
 import { Stat, Skeleton, SkeletonCards, EmptyState } from '@/components/ui/feedback';
 import { DataTable, type Column } from '@/components/ui/data';
 import { ChartFrame, ChartTooltip, CHART, BarList, Donut } from '@/components/ui/charts';
@@ -56,7 +56,7 @@ export default function CreatorDetail() {
   const [offerOpen, setOfferOpen] = React.useState(false);
 
   if (q.isLoading) {
-    return <div className="page"><Skeleton className="mb-6 h-44 w-full rounded-2xl" /><SkeletonCards /><div className="mt-6 grid gap-6 lg:grid-cols-2"><Skeleton className="h-64" /><Skeleton className="h-64" /></div></div>;
+    return <div className="page"><PageHeader compact crumbs={[{ label: 'Creators', to: '/creators' }, { label: <Skeleton className="h-3.5 w-24" /> }]} title={<Skeleton className="h-7 w-56 max-w-full" />} className="mb-2" /><Skeleton className="mb-6 h-44 w-full rounded-2xl" /><SkeletonCards /><div className="mt-6 grid gap-6 lg:grid-cols-2"><Skeleton className="h-64" /><Skeleton className="h-64" /></div></div>;
   }
   if (q.isError || !c) {
     return <div className="page"><PageHeader crumbs={[{ label: 'Creators', to: '/creators' }]} title="Creator not found" /><EmptyState icon={Users} title="We couldn't load this creator" description={q.error instanceof Error ? q.error.message : 'The profile may have been removed.'} action={<Button variant="secondary" onClick={() => navigate('/creators')}>Back to creators</Button>} /></div>;
@@ -78,7 +78,8 @@ export default function CreatorDetail() {
 
   return (
     <div className="page">
-      <PageHeader compact crumbs={[{ label: 'Creators', to: '/creators' }, { label: c.name }]} title={<span className="sr-only">{c.name}</span>} className="mb-2" />
+      {/* The page title is the only h1; the hero below carries the avatar, handle and status, not a second heading. */}
+      <PageHeader compact crumbs={[{ label: 'Creators', to: '/creators' }, { label: c.name }]} title={c.name} meta={<span className="inline-flex items-center gap-2">{c.verified ? <VerifiedMark className="h-5 w-5" /> : null}<Badge tone={c.available ? 'success' : 'neutral'} dot>{c.available ? 'Available' : 'Unavailable'}</Badge></span>} className="mb-3" />
 
       {/* Hero */}
       <div className="card overflow-hidden p-0">
@@ -88,10 +89,9 @@ export default function CreatorDetail() {
             <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:gap-4">
               <Avatar name={c.name} src={c.avatar_url} size="2xl" className="ring-4 ring-surface" />
               <div className="min-w-0 sm:pb-1">
-                <div className="flex flex-wrap items-center gap-2"><h1 className="font-display text-2xl font-semibold tracking-tight">{c.name}</h1>{c.verified ? <VerifiedMark className="h-5 w-5" /> : null}<Badge tone={c.available ? 'success' : 'neutral'} dot>{c.available ? 'Available' : 'Unavailable'}</Badge></div>
+                <p className="font-display text-xl font-semibold tracking-tight">@{c.handle}</p>
                 <div className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[13px] text-muted-foreground">
-                  <span>@{c.handle}</span>
-                  {c.location && <span className="inline-flex items-center gap-1"><MapPin className="h-3.5 w-3.5" />{c.location}</span>}
+                  {c.location &&<span className="inline-flex items-center gap-1"><MapPin className="h-3.5 w-3.5" />{c.location}</span>}
                   <span className="inline-flex items-center gap-1"><Star className="h-3.5 w-3.5 fill-current text-warning" />{c.rating} · {c.completed_campaigns} completed campaigns</span>
                   <span className="inline-flex items-center gap-1"><Clock className="h-3.5 w-3.5" />responds in ~{c.response_time_hours}h</span>
                 </div>
@@ -197,8 +197,7 @@ export default function CreatorDetail() {
       </div>
 
       {/* Portfolio */}
-      <div className="mt-6">
-        <div className="mb-3 flex items-end justify-between"><div><h3 className="text-[15px] font-semibold">Portfolio</h3><p className="text-[13px] text-muted-foreground">Recent work and brand collaborations off-platform</p></div></div>
+      <Section className="mt-6" title="Portfolio" description="Recent work and brand collaborations off-platform">
         {c.portfolio.length === 0 ? <EmptyState compact icon={Film} title="No portfolio items" /> : (
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
             {c.portfolio.map((p) => (
@@ -212,13 +211,12 @@ export default function CreatorDetail() {
             ))}
           </div>
         )}
-      </div>
+      </Section>
 
       {/* History */}
-      <div className="mt-6">
-        <div className="mb-3 flex items-end justify-between"><div><h3 className="text-[15px] font-semibold">Collaboration history</h3><p className="text-[13px] text-muted-foreground">{collabs.length} collaboration{collabs.length === 1 ? '' : 's'} on CMI</p></div><Link to="/collaborations" className="text-xs font-medium text-primary hover:underline">All collaborations</Link></div>
+      <Section className="mt-6" title="Collaboration history" description={`${collabs.length} collaboration${collabs.length === 1 ? '' : 's'} on CMI`} action={<Link to="/collaborations" className="text-xs font-medium text-primary hover:underline">All collaborations</Link>}>
         <DataTable rows={collabs} columns={collabCols} rowKey={(r) => r.id} onRowClick={(r) => navigate(`/collaborations/${r.id}`)} empty="No collaborations yet — send the first offer." />
-      </div>
+      </Section>
 
       <OfferDialog creator={c} open={offerOpen} onOpenChange={setOfferOpen} />
     </div>

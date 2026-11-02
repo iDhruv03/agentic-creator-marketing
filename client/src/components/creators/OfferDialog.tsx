@@ -54,6 +54,7 @@ export function OfferDialog({ creator, defaultCampaignId, open, onOpenChange }: 
   const [rate, setRate] = React.useState('');
   const [rateTouched, setRateTouched] = React.useState(false);
   const [deadline, setDeadline] = React.useState('');
+  const [deadlineTouched, setDeadlineTouched] = React.useState(false);
   const [terms, setTerms] = React.useState('');
   const [termsTouched, setTermsTouched] = React.useState(false);
   const [usage, setUsage] = React.useState(USAGE_OPTIONS[0]!.value);
@@ -72,7 +73,7 @@ export function OfferDialog({ creator, defaultCampaignId, open, onOpenChange }: 
     const c = eligible.find((x) => x.id === cid);
     const initial = available.filter((t) => (c?.target_platforms?.length ? c.target_platforms.includes(DELIVERABLE_PLATFORM[t]!) : true)).slice(0, 1);
     setDeliverables(initial);
-    setRateTouched(false); setTermsTouched(false);
+    setRateTouched(false); setTermsTouched(false); setDeadlineTouched(false);
     setDeadline(defaultDeadline(c));
     setMessage(`Hi ${creator.name.split(' ')[0]} — we'd love to have you on board for ${c?.title ?? 'our upcoming campaign'}. The brief and guidelines are attached; happy to talk through the deliverables.`);
     setErrors({});
@@ -83,7 +84,8 @@ export function OfferDialog({ creator, defaultCampaignId, open, onOpenChange }: 
   const suggested = React.useMemo(() => deliverables.reduce((sum, d) => sum + rateForDeliverable(creator, d), 0), [deliverables, creator]);
   React.useEffect(() => { if (!rateTouched) setRate(suggested ? String(suggested) : ''); }, [suggested, rateTouched]);
   React.useEffect(() => { if (!termsTouched) setTerms(buildTerms(creator, campaign, deliverables, deadline)); }, [creator, campaign, deliverables, deadline, termsTouched]);
-  React.useEffect(() => { if (campaign) setDeadline((d) => d || defaultDeadline(campaign)); }, [campaign]);
+  // Follow the selected campaign's end date until the user edits the deadline themselves.
+  React.useEffect(() => { if (!deadlineTouched) setDeadline(defaultDeadline(campaign)); }, [campaign, deadlineTouched]);
 
   const rateNum = Number(rate) || 0;
   const bandMin = campaign?.rate_band_min ?? null;
@@ -149,8 +151,8 @@ export function OfferDialog({ creator, defaultCampaignId, open, onOpenChange }: 
             {campaign && bandMax == null && <Hint>This campaign has no rate band — any rate goes straight through.</Hint>}
           </div>
           <div>
-            <Label required>Deadline</Label>
-            <Input type="date" value={deadline} onChange={(e) => setDeadline(e.target.value)} max={campaign?.end_date ?? undefined} />
+            <Label required htmlFor="offer-deadline">Deadline</Label>
+            <Input id="offer-deadline" type="date" value={deadline} onChange={(e) => { setDeadline(e.target.value); setDeadlineTouched(true); }} max={campaign?.end_date ?? undefined} />
             {campaign?.end_date && <Hint>Campaign ends {fmtDate(campaign.end_date)}</Hint>}
           </div>
         </div>

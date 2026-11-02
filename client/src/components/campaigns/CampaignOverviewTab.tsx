@@ -5,7 +5,7 @@ import type { Campaign, CampaignAnalytics } from '@/types';
 import { useCampaignAnalytics } from '@/hooks/queries';
 import { money, num, pct, fmtDate, platformLabel, cn } from '@/lib/utils';
 import { Stat, SkeletonCards, EmptyState, Skeleton } from '@/components/ui/feedback';
-import { Card, CardHeader } from '@/components/ui/card';
+import { Card, CardHeader, Section } from '@/components/ui/card';
 import { Avatar } from '@/components/ui/avatar';
 import { DataTable, type Column } from '@/components/ui/data';
 import { ChartFrame, ChartTooltip, CHART, BarList } from '@/components/ui/charts';
@@ -30,7 +30,7 @@ export function Funnel({ funnel }: { funnel: CampaignAnalytics['funnel'] }) {
               <div className={cn('w-full rounded-md transition-all duration-500', v > 0 ? 'bg-primary' : 'bg-transparent')} style={{ height: `${Math.max(v > 0 ? 12 : 0, (v / max) * 100)}%`, opacity: 0.35 + 0.65 * ((i + 1) / FUNNEL.length) }} />
             </div>
             <div className="mt-1.5 font-display text-lg font-semibold tabular-nums leading-none">{v}</div>
-            <div className="truncate text-[11px] text-muted-foreground">{f.label}{conv != null && prev ? <span className="ml-1 opacity-70">· {conv}%</span> : null}</div>
+            <div className="truncate text-[11px] text-muted-foreground">{f.label}{conv != null && prev ? <span className="ml-1">· {conv}%</span> : null}</div>
           </div>
         );
       })}
@@ -79,9 +79,10 @@ export function CampaignOverviewTab({ campaign }: { campaign: Campaign }) {
 
           <div className="grid gap-6 xl:grid-cols-3">
             <div className="xl:col-span-2">
-              <ChartFrame title="Spend & reach over time" description="Cumulative payouts vs views from approved content" height={220} legend={[{ label: 'Spend', color: CHART.teal }, { label: 'Views', color: CHART.primary }]}>
+              <ChartFrame title="Spend & reach over time" description="Cumulative committed & paid vs views from approved content" height={220} legend={[{ label: 'Committed', color: CHART.amber }, { label: 'Spend', color: CHART.teal }, { label: 'Views', color: CHART.primary }]}>
                 <AreaChart data={a.timeline} margin={{ top: 8, right: 8, bottom: 0, left: -10 }}>
                   <defs>
+                    <linearGradient id={`committed-${campaign.id}`} x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor={CHART.amber} stopOpacity={0.25} /><stop offset="100%" stopColor={CHART.amber} stopOpacity={0} /></linearGradient>
                     <linearGradient id={`spend-${campaign.id}`} x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor={CHART.teal} stopOpacity={0.3} /><stop offset="100%" stopColor={CHART.teal} stopOpacity={0} /></linearGradient>
                     <linearGradient id={`views-${campaign.id}`} x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor={CHART.primary} stopOpacity={0.3} /><stop offset="100%" stopColor={CHART.primary} stopOpacity={0} /></linearGradient>
                   </defs>
@@ -89,7 +90,8 @@ export function CampaignOverviewTab({ campaign }: { campaign: Campaign }) {
                   <XAxis dataKey="date" tickFormatter={(d) => fmtDate(d, 'd MMM')} axisLine={false} tickLine={false} minTickGap={24} />
                   <YAxis yAxisId="spend" axisLine={false} tickLine={false} tickFormatter={(v) => money(v, { compact: true })} width={52} />
                   <YAxis yAxisId="views" orientation="right" axisLine={false} tickLine={false} tickFormatter={(v) => num(v, { compact: true })} width={44} />
-                  <Tooltip content={<ChartTooltip labelFormat={(l) => fmtDate(l, 'EEE d MMM')} format={(v, n) => (n === 'Spend' ? money(v) : num(v, { compact: true }))} />} />
+                  <Tooltip content={<ChartTooltip labelFormat={(l) => fmtDate(l, 'EEE d MMM')} format={(v, n) => (n === 'Views' ? num(v, { compact: true }) : money(v))} />} />
+                  <Area yAxisId="spend" type="monotone" dataKey="committed" name="Committed" stroke={CHART.amber} strokeWidth={2} fill={`url(#committed-${campaign.id})`} />
                   <Area yAxisId="spend" type="monotone" dataKey="spend" name="Spend" stroke={CHART.teal} strokeWidth={2} fill={`url(#spend-${campaign.id})`} />
                   <Area yAxisId="views" type="monotone" dataKey="views" name="Views" stroke={CHART.primary} strokeWidth={2} fill={`url(#views-${campaign.id})`} />
                 </AreaChart>
@@ -101,10 +103,9 @@ export function CampaignOverviewTab({ campaign }: { campaign: Campaign }) {
             </Card>
           </div>
 
-          <div>
-            <div className="mb-3 flex items-end justify-between"><div><h3 className="text-[15px] font-semibold">By creator</h3><p className="text-[13px] text-muted-foreground">Rate, delivery and performance per collaboration</p></div></div>
+          <Section title="By creator" description="Rate, delivery and performance per collaboration">
             <DataTable rows={a.by_creator} columns={byCreatorCols} rowKey={(r) => r.creator_id} onRowClick={(r) => navigate(`/creators/${r.creator_id}`)} empty="No collaborations yet — send an offer from the shortlist." />
-          </div>
+          </Section>
         </>
       )}
     </div>

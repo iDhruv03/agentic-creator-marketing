@@ -8,6 +8,24 @@ import { useUser } from '@/store/auth';
 import { useCampaigns, useCreators } from '@/hooks/queries';
 import { Avatar } from '@/components/ui/avatar';
 import { Kbd } from '@/components/ui/feedback';
+import { useReturnFocus } from '@/components/ui/overlay';
+
+/**
+ * Rank items by plain substring / word-prefix matches instead of cmdk's fuzzy scorer, so an exact
+ * creator or campaign name ("Aarav") outranks static entries that merely contain the letters in order
+ * ("Review pending approvals").
+ */
+function rankItem(value: string, search: string): number {
+  const v = value.toLowerCase();
+  const q = search.trim().toLowerCase();
+  if (!q) return 1;
+  if (v.startsWith(q)) return 1;
+  if (v.split(/\s+/).some((w) => w.startsWith(q))) return 0.9;
+  if (v.includes(q)) return 0.7;
+  const words = q.split(/\s+/).filter(Boolean);
+  if (words.length > 1 && words.every((w) => v.includes(w))) return 0.5;
+  return 0;
+}
 
 export function CommandPalette() {
   const { paletteOpen, setPalette, setTheme } = useUi();
@@ -17,6 +35,7 @@ export function CommandPalette() {
   const campaigns = useCampaigns({});
   const creators = useCreators({ q: q.length >= 2 ? q : undefined, limit: 6 });
   const isCreator = user?.role === 'CREATOR';
+  const onCloseAutoFocus = useReturnFocus(paletteOpen);
 
   React.useEffect(() => { if (!paletteOpen) setQ(''); }, [paletteOpen]);
   const go = (to: string) => { setPalette(false); navigate(to); };
@@ -29,12 +48,12 @@ export function CommandPalette() {
     <DialogPrimitive.Root open={paletteOpen} onOpenChange={setPalette}>
       <DialogPrimitive.Portal>
         <DialogPrimitive.Overlay className="fixed inset-0 z-[80] bg-black/40 backdrop-blur-[2px] animate-fade-in" />
-        <DialogPrimitive.Content className="fixed left-1/2 top-[12vh] z-[90] w-[calc(100vw-2rem)] max-w-xl -translate-x-1/2 overflow-hidden rounded-2xl border border-border bg-surface-raised shadow-overlay animate-scale-in focus:outline-none">
+        <DialogPrimitive.Content onCloseAutoFocus={onCloseAutoFocus} aria-describedby={undefined} className="fixed left-1/2 top-[12vh] z-[90] w-[calc(100vw-2rem)] max-w-xl -translate-x-1/2 overflow-hidden rounded-2xl border border-border bg-surface-raised shadow-overlay animate-scale-in focus:outline-none">
           <DialogPrimitive.Title className="sr-only">Command palette</DialogPrimitive.Title>
-          <Command label="Command palette" shouldFilter={true}>
+          <Command label="Command palette" shouldFilter={true} filter={rankItem}>
             <div className="flex items-center gap-2 border-b border-border px-4">
-              <Search className="h-4 w-4 text-muted-foreground" />
-              <Command.Input value={q} onValueChange={setQ} placeholder="Jump to a page, campaign or creator…" className="h-12 w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground/70" />
+              <Search className="h-4 w-4 text-muted-foreground" aria-hidden />
+              <Command.Input aria-label="Search pages, campaigns and creators" value={q} onValueChange={setQ} placeholder="Jump to a page, campaign or creator…" className="h-12 w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground" />
               <Kbd>esc</Kbd>
             </div>
             <Command.List className="max-h-[420px] overflow-y-auto p-2">

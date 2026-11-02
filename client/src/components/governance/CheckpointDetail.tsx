@@ -1,7 +1,8 @@
 import * as React from 'react';
 import { Link } from 'react-router-dom';
 import { Bot, ExternalLink, Quote, ShieldCheck, ShieldX, Megaphone, PlayCircle, Clock, AlertTriangle, Check, X, Users, FileEdit, ArrowLeftRight } from 'lucide-react';
-import type { Checkpoint, ComplianceReport, DeliverableMetrics } from '@/types';
+import type { Checkpoint, ComplianceReport, DeliverableMetrics, RoleScope } from '@/types';
+import { SCOPE_META } from '@/components/agents/shared';
 import { api } from '@/lib/api';
 import { useAction, useSession, useScopes } from '@/hooks/queries';
 import { money, num, pct, fmtDateTime, timeAgo, titleCase, deliverableLabel, cn } from '@/lib/utils';
@@ -18,10 +19,23 @@ import { parseMaybe } from './hooks';
 
 const INVALIDATE = ['checkpoints', 'checkpoint', 'collaborations', 'collaboration', 'campaigns', 'campaign', 'ledger', 'trial-balance', 'audit', 'audit-verify', 'overview', 'sessions', 'session', 'notifications'];
 
+/** Known escalation action types raised via request_human_approval → sentence-case labels. */
+const ESCALATION_LABEL: Record<string, string> = { CREATOR_FIT: 'Creator fit', RATE_EXCEPTION: 'Rate exception', STRATEGIC_DIRECTION: 'Strategic direction', ESCALATION: 'Escalation' };
+function escalationLabel(type: unknown): string {
+  const key = String(type ?? 'ESCALATION');
+  if (ESCALATION_LABEL[key]) return ESCALATION_LABEL[key]!;
+  const words = key.toLowerCase().replace(/_/g, ' ').trim();
+  return words ? words.charAt(0).toUpperCase() + words.slice(1) : 'Escalation';
+}
+function scopeLabel(scope: string | undefined): string {
+  if (!scope) return '';
+  return SCOPE_META[scope as RoleScope]?.label ?? titleCase(scope);
+}
+
 function Block({ title, children, className }: { title: React.ReactNode; children: React.ReactNode; className?: string }) {
   return (
     <section className={className}>
-      <h4 className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">{title}</h4>
+      <h3 className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">{title}</h3>
       {children}
     </section>
   );
@@ -142,7 +156,7 @@ function ActionBody({ chk, session }: { chk: Checkpoint; session: ReturnType<typ
     case 'request_human_approval':
       return (
         <div className="space-y-3">
-          <div className="flex items-center gap-2"><Badge tone="agent">{titleCase(p.action_type ?? 'Escalation')}</Badge><span className="text-xs text-muted-foreground">Agent asked for a decision</span></div>
+          <div className="flex items-center gap-2"><Badge tone="agent">{escalationLabel(p.action_type)}</Badge><span className="text-xs text-muted-foreground">Agent asked for a decision</span></div>
           <div className="rounded-xl border border-border bg-surface-muted/40 p-3 text-[13.5px] leading-relaxed whitespace-pre-wrap">{p.details}</div>
           {p.reason && <div className="text-[13px] text-muted-foreground"><span className="font-medium text-foreground/80">Why a human:</span> {p.reason}</div>}
         </div>
@@ -174,7 +188,7 @@ export function CheckpointDetail({ chk }: { chk: Checkpoint }) {
           <RiskBadge level={chk.risk_level} />
           <ToolChip name={chk.tool_name} className="ml-auto" />
         </div>
-        <h3 className="mt-3 font-display text-lg font-semibold leading-tight">{chk.amount != null ? <span className="tabular-nums">{money(chk.amount)}</span> : meta.label}{chk.amount != null && <span className="text-muted-foreground"> · {meta.label.toLowerCase()}</span>}</h3>
+        <h2 className="mt-3 font-display text-lg font-semibold leading-tight">{chk.amount != null ? <span className="tabular-nums">{money(chk.amount)}</span> : meta.label}{chk.amount != null && <span className="text-muted-foreground"> · {meta.label.toLowerCase()}</span>}</h2>
         <p className="mt-1 text-[13px] text-muted-foreground">{meta.description}</p>
       </div>
 
@@ -190,7 +204,7 @@ export function CheckpointDetail({ chk }: { chk: Checkpoint }) {
             <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-agent-soft text-agent"><Bot className="h-3.5 w-3.5" /></span>
             <div className="min-w-0 flex-1">
               <Link to={`/agents/sessions/${chk.agent_session_id}`} className="font-medium hover:text-primary">{chk.agent_name ?? s?.name ?? chk.agent_session_id}</Link>
-              <div className="text-xs text-muted-foreground">{titleCase(chk.role_scope ?? s?.role_scope ?? '')}{s && ` · ${money(s.spent_amount)} of ${money(s.budget_ceiling)} budget used · rate ceiling ${money(s.rate_ceiling)}`}</div>
+              <div className="text-xs text-muted-foreground">{scopeLabel(chk.role_scope ?? s?.role_scope)}{s && ` · ${money(s.spent_amount)} of ${money(s.budget_ceiling)} budget used · rate ceiling ${money(s.rate_ceiling)}`}</div>
               {s && <Progress className="mt-1.5 max-w-[240px]" value={s.budget_ceiling ? (s.spent_amount / s.budget_ceiling) * 100 : 0} tone="agent" size="xs" />}
             </div>
           </div>

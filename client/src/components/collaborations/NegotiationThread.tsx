@@ -71,7 +71,7 @@ export function NegotiationThread({ collab, canAct }: { collab: Collaboration; c
 
   return (
     <div className="space-y-4">
-      <div ref={listRef} className="max-h-[560px] space-y-4 overflow-y-auto pr-1">
+      <div ref={listRef} tabIndex={0} role="region" aria-label="Negotiation thread" className="max-h-[560px] space-y-4 overflow-y-auto rounded-lg pr-1 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring">
         {messages.length === 0 && <EmptyState compact icon={MessageSquare} title="No messages yet" description="Offers, counters and notes between you and the creator show up here." />}
         {messages.map((m) => <Bubble key={m.id} m={m} collab={collab} />)}
       </div>
@@ -89,7 +89,7 @@ export function NegotiationThread({ collab, canAct }: { collab: Collaboration; c
 
       {!closed && (
         <form className="flex items-end gap-2" onSubmit={(e) => { e.preventDefault(); if (draft.trim()) send.mutate([draft.trim()]); }}>
-          <div className="flex-1"><Input value={draft} onChange={(e) => setDraft(e.target.value)} placeholder={`Message ${collab.creator_name?.split(' ')[0] ?? 'the creator'}…`} maxLength={2000} /></div>
+          <div className="flex-1"><Input value={draft} onChange={(e) => setDraft(e.target.value)} onKeyDown={(e) => { if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') { e.preventDefault(); if (draft.trim() && !send.isPending) send.mutate([draft.trim()]); } }} placeholder={`Message ${collab.creator_name?.split(' ')[0] ?? 'the creator'}… (Enter or ⌘/Ctrl + Enter to send)`} maxLength={2000} /></div>
           <Button type="submit" size="icon" loading={send.isPending} disabled={!draft.trim()} aria-label="Send message"><Send className="h-4 w-4" /></Button>
         </form>
       )}

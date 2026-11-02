@@ -1,5 +1,6 @@
+import * as React from 'react';
 import { RotateCcw, Target } from 'lucide-react';
-import { useCampaigns, useNiches } from '@/hooks/queries';
+import { useCampaigns, useNiches, useCreators } from '@/hooks/queries';
 import { num, money, platformLabel } from '@/lib/utils';
 import { Label, SearchInput, Select, ChipGroup, Slider, Switch, Input, Hint } from '@/components/ui/field';
 import { Button } from '@/components/ui/button';
@@ -9,14 +10,14 @@ export const FOLLOWER_MAX = 1_200_000;
 export const PLATFORM_OPTIONS = ['instagram', 'youtube', 'tiktok'];
 
 export interface CreatorFilterState {
-  q: string; campaign_id: string; niche: string; platform: string; min_followers: number; max_followers: number; min_engagement: string; max_rate: string; rate_type: 'post' | 'reel' | 'video' | 'story'; verified: boolean; sort: string;
+  q: string; campaign_id: string; niche: string; platform: string; country: string; min_followers: number; max_followers: number; min_engagement: string; max_rate: string; rate_type: 'post' | 'reel' | 'video' | 'story'; verified: boolean; sort: string;
 }
 
-export const DEFAULT_FILTERS: CreatorFilterState = { q: '', campaign_id: '', niche: '', platform: '', min_followers: 0, max_followers: FOLLOWER_MAX, min_engagement: '', max_rate: '', rate_type: 'video', verified: false, sort: 'relevance' };
+export const DEFAULT_FILTERS: CreatorFilterState = { q: '', campaign_id: '', niche: '', platform: '', country: '', min_followers: 0, max_followers: FOLLOWER_MAX, min_engagement: '', max_rate: '', rate_type: 'video', verified: false, sort: 'relevance' };
 
 export function filtersToParams(f: CreatorFilterState): Record<string, unknown> {
   return {
-    q: f.q.trim() || undefined, campaign_id: f.campaign_id || undefined, niche: f.niche || undefined, platform: f.platform || undefined,
+    q: f.q.trim() || undefined, campaign_id: f.campaign_id || undefined, niche: f.niche || undefined, platform: f.platform || undefined, country: f.country || undefined,
     min_followers: f.min_followers > 0 ? f.min_followers : undefined, max_followers: f.max_followers < FOLLOWER_MAX ? f.max_followers : undefined,
     min_engagement: f.min_engagement ? Number(f.min_engagement) : undefined, max_rate: f.max_rate ? Number(f.max_rate) : undefined, rate_type: f.max_rate || f.sort.startsWith('rate') ? f.rate_type : undefined,
     verified: f.verified ? '1' : undefined, sort: f.sort !== 'relevance' ? f.sort : undefined, limit: 100,
@@ -27,7 +28,7 @@ export function filtersFromSearch(sp: URLSearchParams): CreatorFilterState {
   const n = (k: string, d: number) => { const v = Number(sp.get(k)); return sp.has(k) && Number.isFinite(v) ? v : d; };
   const rt = sp.get('rate_type');
   return {
-    q: sp.get('q') ?? '', campaign_id: sp.get('campaign_id') ?? '', niche: sp.get('niche') ?? '', platform: sp.get('platform') ?? '',
+    q: sp.get('q') ?? '', campaign_id: sp.get('campaign_id') ?? '', niche: sp.get('niche') ?? '', platform: sp.get('platform') ?? '', country: sp.get('country') ?? '',
     min_followers: n('min_followers', 0), max_followers: n('max_followers', FOLLOWER_MAX), min_engagement: sp.get('min_engagement') ?? '', max_rate: sp.get('max_rate') ?? '',
     rate_type: rt === 'post' || rt === 'reel' || rt === 'story' || rt === 'video' ? rt : 'video', verified: sp.get('verified') === '1', sort: sp.get('sort') ?? 'relevance',
   };
@@ -39,6 +40,7 @@ export function filtersToSearch(f: CreatorFilterState): URLSearchParams {
   if (f.campaign_id) sp.set('campaign_id', f.campaign_id);
   if (f.niche) sp.set('niche', f.niche);
   if (f.platform) sp.set('platform', f.platform);
+  if (f.country) sp.set('country', f.country);
   if (f.min_followers > 0) sp.set('min_followers', String(f.min_followers));
   if (f.max_followers < FOLLOWER_MAX) sp.set('max_followers', String(f.max_followers));
   if (f.min_engagement) sp.set('min_engagement', f.min_engagement);
@@ -50,7 +52,7 @@ export function filtersToSearch(f: CreatorFilterState): URLSearchParams {
 }
 
 export function activeFilterCount(f: CreatorFilterState): number {
-  return [f.q.trim(), f.niche, f.platform, f.min_followers > 0, f.max_followers < FOLLOWER_MAX, f.min_engagement, f.max_rate, f.verified].filter(Boolean).length;
+  return [f.q.trim(), f.niche, f.platform, f.country, f.min_followers > 0, f.max_followers < FOLLOWER_MAX, f.min_engagement, f.max_rate, f.verified].filter(Boolean).length;
 }
 
 const SORT_OPTIONS = [
@@ -61,6 +63,14 @@ const SORT_OPTIONS = [
 export function CreatorFilters({ value, onChange, onReset, hideHeader }: { value: CreatorFilterState; onChange: (patch: Partial<CreatorFilterState>) => void; onReset: () => void; hideHeader?: boolean }) {
   const niches = useNiches();
   const campaigns = useCampaigns({});
+  // Distinct audience markets across the marketplace — the API's `country` filter matches any audience country.
+  const marketplace = useCreators({ limit: 100 });
+  const countries = React.useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const c of marketplace.data ?? []) for (const x of c.audience?.countries ?? []) counts.set(x.name, (counts.get(x.name) ?? 0) + x.pct);
+    if (value.country && !counts.has(value.country)) counts.set(value.country, 0);
+    return [...counts.entries()].sort((a, b) => b[1] - a[1]).map(([name]) => name);
+  }, [marketplace.data, value.country]);
   const eligible = (campaigns.data ?? []).filter((c) => ['ACTIVE', 'DRAFT', 'PAUSED'].includes(c.status));
   const selected = eligible.find((c) => c.id === value.campaign_id);
   const count = activeFilterCount(value);
@@ -88,6 +98,12 @@ export function CreatorFilters({ value, onChange, onReset, hideHeader }: { value
       <div>
         <Label>Platform</Label>
         <ChipGroup size="sm" multiple={false} options={PLATFORM_OPTIONS.map((p) => ({ value: p, label: <span className="inline-flex items-center gap-1.5"><PlatformIcon platform={p} className="h-4 w-4 text-[9px]" />{platformLabel(p)}</span> }))} value={value.platform ? [value.platform] : []} onChange={(v) => onChange({ platform: v[0] ?? '' })} />
+      </div>
+
+      <div>
+        <Label>Audience country</Label>
+        <Select size="sm" value={value.country} onValueChange={(country) => onChange({ country })} allowEmpty="Any country" placeholder={marketplace.isLoading ? 'Loading…' : 'Any country'} options={countries.map((c) => ({ value: c, label: c }))} />
+        <Hint>Creators whose audience includes this market. Naming it also lifts their audience-fit score.</Hint>
       </div>
 
       <div>

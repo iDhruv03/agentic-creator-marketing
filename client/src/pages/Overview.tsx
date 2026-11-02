@@ -13,6 +13,8 @@ import { Badge } from '@/components/ui/badge';
 import { Avatar } from '@/components/ui/avatar';
 import { ChartFrame, ChartTooltip, CHART, BarList, Donut } from '@/components/ui/charts';
 import { CampaignStatusBadge, ExecStatusBadge, ActorBadge, CHECKPOINT_ACTION, RiskBadge, ToolChip, RunStatusBadge } from '@/components/ui/status';
+import { SCOPE_META } from '@/components/agents/shared';
+import { QueryError } from '@/components/collaborations/QueryError';
 
 export default function Overview() {
   const navigate = useNavigate();
@@ -56,7 +58,7 @@ export default function Overview() {
       )}
 
       {/* KPIs */}
-      {overview.isLoading ? <SkeletonCards /> : t && (
+      {overview.isLoading ? <SkeletonCards /> : overview.isError ? <QueryError what="your overview" error={overview.error} refetch={overview.refetch} /> : t && (
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <Stat label="Managed budget" value={money(t.budget)} icon={Wallet} tone="primary" hint={`${t.campaigns} campaign${t.campaigns === 1 ? '' : 's'} · ${t.active_campaigns} active`} onClick={() => navigate('/finance')} />
           <Stat label="Locked in escrow" value={money(t.escrow)} icon={Lock} tone="warning" hint="Committed to open offers & contracts" onClick={() => navigate('/finance')} />
@@ -86,10 +88,7 @@ export default function Overview() {
 
           {/* Campaigns */}
           <Card padded={false}>
-            <div className="flex items-center justify-between px-5 pt-5">
-              <div><h3 className="text-[15px] font-semibold">Campaigns</h3><p className="text-[13px] text-muted-foreground">Budget utilisation and pipeline per campaign</p></div>
-              <Button variant="ghost" size="sm" rightIcon={<ArrowRight className="h-3.5 w-3.5" />} onClick={() => navigate('/campaigns')}>All campaigns</Button>
-            </div>
+            <CardHeader className="mb-0 px-5 pt-5" title="Campaigns" description="Budget utilisation and pipeline per campaign" action={<Button variant="ghost" size="sm" rightIcon={<ArrowRight className="h-3.5 w-3.5" />} onClick={() => navigate('/campaigns')}>All campaigns</Button>} />
             <div className="mt-3 divide-y divide-border/70">
               {(campaigns.data ?? []).length === 0 && <div className="px-5 py-8"><EmptyState compact icon={Megaphone} title="No campaigns yet" description="Create a campaign and let an agent source creators for it." action={<Button size="sm" onClick={() => navigate('/campaigns/new')}>New campaign</Button>} /></div>}
               {(campaigns.data ?? []).slice(0, 5).map((c) => (
@@ -99,7 +98,7 @@ export default function Overview() {
                     <div className="mt-0.5 text-xs text-muted-foreground">{c.brand_name} · {c.stats.collaborations} collab{c.stats.collaborations === 1 ? '' : 's'} · {c.stats.shortlist} shortlisted{c.stats.pending_checkpoints ? ` · ${c.stats.pending_checkpoints} pending approval` : ''}</div>
                   </div>
                   <div className="hidden sm:block">
-                    <div className="mb-1 flex justify-between text-[11px] text-muted-foreground"><span>{money(c.financials.committed)} committed</span><span>{pct(c.financials.utilisation_pct, 0)}</span></div>
+                    <div className="mb-1 flex justify-between text-[11px] text-muted-foreground tabular-nums"><span>{money(c.financials.committed)} committed</span><span>{pct(c.financials.utilisation_pct, 0)}</span></div>
                     <Progress value={1} segments={[{ value: c.financials.spent / (c.budget || 1) * 100, tone: 'success' }, { value: c.financials.escrow_locked / (c.budget || 1) * 100, tone: 'warning' }]} size="sm" />
                   </div>
                   <div className="text-right text-[13px] font-semibold tabular-nums">{money(c.budget)}</div>
@@ -110,10 +109,7 @@ export default function Overview() {
 
           {/* Recent audit */}
           <Card padded={false}>
-            <div className="flex items-center justify-between px-5 pt-5">
-              <div><h3 className="text-[15px] font-semibold">Latest audited actions</h3><p className="text-[13px] text-muted-foreground">Append-only, hash-chained — the same log agents read</p></div>
-              <Button variant="ghost" size="sm" rightIcon={<ArrowRight className="h-3.5 w-3.5" />} onClick={() => navigate('/audit')}>Audit trail</Button>
-            </div>
+            <CardHeader className="mb-0 px-5 pt-5" title="Latest audited actions" description="Append-only, hash-chained — the same log agents read" action={<Button variant="ghost" size="sm" rightIcon={<ArrowRight className="h-3.5 w-3.5" />} onClick={() => navigate('/audit')}>Audit trail</Button>} />
             <div className="mt-3 divide-y divide-border/70">
               {(audit.data?.items ?? []).map((a) => (
                 <div key={a.id} className="flex items-start gap-3 px-5 py-3">
@@ -162,7 +158,7 @@ export default function Overview() {
                   <span className={cn('flex h-8 w-8 items-center justify-center rounded-lg', s.status === 'ACTIVE' ? 'bg-agent-soft text-agent' : 'bg-surface-muted text-muted-foreground')}><Bot className="h-4 w-4" /></span>
                   <div className="min-w-0 flex-1">
                     <div className="truncate text-[13px] font-medium">{s.name}</div>
-                    <div className="text-xs text-muted-foreground">{titleCase(s.role_scope)} · {money(s.spent_amount)} / {money(s.budget_ceiling)}</div>
+                    <div className="text-xs text-muted-foreground tabular-nums">{SCOPE_META[s.role_scope]?.label ?? titleCase(s.role_scope)} · {money(s.spent_amount)} / {money(s.budget_ceiling)}</div>
                   </div>
                   <Progress value={s.budget_ceiling ? (s.spent_amount / s.budget_ceiling) * 100 : 0} tone="agent" size="xs" className="w-14" />
                 </Link>

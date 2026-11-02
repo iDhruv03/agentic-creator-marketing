@@ -15,6 +15,7 @@ import { ChartFrame, ChartTooltip, CHART } from '@/components/ui/charts';
 import { DataTable } from '@/components/ui/data';
 import { CollabStatusBadge } from '@/components/ui/status';
 import { Button } from '@/components/ui/button';
+import { QueryError } from '@/components/collaborations/QueryError';
 import { isClosed, currentMonthKey, monthLabel, ledgerDirection, LEDGER_LABEL, LEDGER_TONE } from '@/components/creator/utils';
 
 export default function CreatorWallet() {
@@ -41,7 +42,7 @@ export default function CreatorWallet() {
     <div className="page">
       <PageHeader title="Wallet" description="Payouts are released from the brand's escrow as each deliverable is approved. Every movement is a double-entry ledger record." actions={<Button variant="secondary" leftIcon={<Inbox className="h-4 w-4" />} onClick={() => navigate('/creator/offers?tab=active')}>Active work</Button>} />
 
-      {wallet.isLoading ? <SkeletonCards /> : w && (
+      {wallet.isLoading ? <SkeletonCards /> : wallet.isError ? <QueryError what="your wallet" error={wallet.error} refetch={wallet.refetch} /> : w && (
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <Stat label="Balance" value={money(w.balance)} icon={Wallet} tone="primary" hint="Available to pay out" />
           <Stat label="Pending escrow" value={money(w.pending_escrow)} icon={Lock} tone="warning" hint={`${pending.length} collaboration${pending.length === 1 ? '' : 's'} with funds locked`} />

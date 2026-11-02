@@ -17,7 +17,7 @@ export interface CampaignAnalytics {
   funnel: { shortlisted: number; offered: number; accepted: number; delivered: number; approved: number; paid: number };
   by_creator: { creator_id: string; name: string; handle: string; avatar_url: string | null; rate: number; status: string; views: number; engagement_rate: number; cpe: number; deliverables: number }[];
   by_platform: { platform: string; views: number; engagements: number; deliverables: number }[];
-  timeline: { date: string; spend: number; views: number }[];
+  timeline: { date: string; spend: number; committed: number; views: number }[];
 }
 
 function sumMetrics(rows: { metrics: DeliverableMetrics | null }[]) {
@@ -91,20 +91,22 @@ export function campaignAnalytics(campaignId: string): CampaignAnalytics {
     byPlatformMap.set(d.platform, row);
   }
 
-  const timelineMap = new Map<string, { date: string; spend: number; views: number }>();
-  for (const l of queryAll<any>(`SELECT amount, created_at FROM ledger_entries WHERE campaign_id = ? AND entry_type = 'PAYOUT_RELEASE'`, [campaignId])) {
-    const date = l.created_at.slice(0, 10);
-    const row = timelineMap.get(date) ?? { date, spend: 0, views: 0 };
-    row.spend += l.amount;
-    timelineMap.set(date, row);
+  const timelineMap = new Map<string, { date: string; spend: number; committed: number; views: number }>();
+  const ensure = (date: string) => { const row = timelineMap.get(date) ?? { date, spend: 0, committed: 0, views: 0 }; timelineMap.set(date, row); return row; };
+  ensure((campaign.start_date ?? campaign.created_at).slice(0, 10));
+  for (const l of queryAll<any>(`SELECT amount, entry_type, created_at FROM ledger_entries WHERE campaign_id = ? AND entry_type IN ('PAYOUT_RELEASE','ESCROW_HOLD','ESCROW_REFUND')`, [campaignId])) {
+    const row = ensure(l.created_at.slice(0, 10));
+    if (l.entry_type === 'PAYOUT_RELEASE') row.spend += l.amount;
+    else row.committed += l.entry_type === 'ESCROW_HOLD' ? l.amount : -l.amount;
   }
   for (const d of deliverables) {
     if (!d.submitted_at || !d.metrics) continue;
-    const date = d.submitted_at.slice(0, 10);
-    const row = timelineMap.get(date) ?? { date, spend: 0, views: 0 };
-    row.views += d.metrics.views;
-    timelineMap.set(date, row);
+    ensure(d.submitted_at.slice(0, 10)).views += d.metrics.views;
   }
+  ensure(new Date().toISOString().slice(0, 10));
+  // Cumulative series so the chart reads as a running total.
+  let cumSpend = 0, cumCommitted = 0, cumViews = 0;
+  const timeline = [...timelineMap.values()].sort((a, b) => a.date.localeCompare(b.date)).map((r) => { cumSpend += r.spend; cumCommitted += r.committed; cumViews += r.views; return { date: r.date, spend: Math.round(cumSpend * 100) / 100, committed: Math.round(cumCommitted * 100) / 100, views: cumViews }; });
 
   return {
     campaign_id: campaignId,
@@ -115,7 +117,7 @@ export function campaignAnalytics(campaignId: string): CampaignAnalytics {
     funnel,
     by_creator: [...byCreatorMap.values()].sort((a, b) => b.views - a.views),
     by_platform: [...byPlatformMap.values()],
-    timeline: [...timelineMap.values()].sort((a, b) => a.date.localeCompare(b.date)),
+    timeline,
   };
 }
 

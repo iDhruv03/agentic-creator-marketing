@@ -12,7 +12,7 @@ export function CardHeader({ className, title, description, action, icon, ...pro
       <div className="flex min-w-0 items-start gap-3">
         {icon && <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary-soft text-primary">{icon}</div>}
         <div className="min-w-0">
-          <h3 className="text-[15px] font-semibold leading-tight text-foreground">{title}</h3>
+          <h2 className="text-[15px] font-semibold leading-tight text-foreground">{title}</h2>
           {description && <p className="mt-1 text-[13px] leading-snug text-muted-foreground">{description}</p>}
         </div>
       </div>

@@ -17,7 +17,7 @@ function Bubble({ m, brand }: { m: NegotiationMessage; brand?: string }) {
   if (m.kind === 'SYSTEM') {
     return (
       <div className="flex justify-center px-6">
-        <div className="max-w-md text-center text-[12px] text-muted-foreground"><span>{m.body}</span><span className="ml-1.5 opacity-70">· {fmtDateTime(m.created_at)}</span></div>
+        <div className="max-w-md text-center text-[12px] text-muted-foreground"><span>{m.body}</span><span className="ml-1.5 whitespace-nowrap">· {fmtDateTime(m.created_at)}</span></div>
       </div>
     );
   }
@@ -30,11 +30,11 @@ function Bubble({ m, brand }: { m: NegotiationMessage; brand?: string }) {
       <div className={cn('max-w-[88%] sm:max-w-[75%] rounded-2xl px-3.5 py-2.5 text-[13.5px] leading-relaxed', mine ? 'rounded-br-md bg-primary text-primary-foreground' : 'rounded-bl-md border border-border bg-surface-muted/70 text-foreground')}>
         {amountCard && (
           <div className={cn('mb-1.5 flex items-center justify-between gap-4 rounded-xl px-3 py-2', mine ? 'bg-primary-foreground/10' : 'bg-surface')}>
-            <span className={cn('text-[11px] font-semibold uppercase tracking-wider', mine ? 'text-primary-foreground/80' : m.kind === 'ACCEPT' ? 'text-success' : m.kind === 'COUNTER' ? 'text-warning' : 'text-info')}>{KIND_LABEL[m.kind]}</span>
+            <span className={cn('text-[11px] font-semibold uppercase tracking-wider', mine ? 'text-primary-foreground' : m.kind === 'ACCEPT' ? 'text-success' : m.kind === 'COUNTER' ? 'text-warning' : 'text-info')}>{KIND_LABEL[m.kind]}</span>
             {m.amount != null && <span className="font-display text-lg font-semibold tabular-nums">{money(m.amount)}</span>}
           </div>
         )}
-        {m.kind === 'DECLINE' && <div className={cn('mb-1 text-[11px] font-semibold uppercase tracking-wider', mine ? 'text-primary-foreground/80' : 'text-danger')}>Declined</div>}
+        {m.kind === 'DECLINE' && <div className={cn('mb-1 text-[11px] font-semibold uppercase tracking-wider', mine ? 'text-primary-foreground' : 'text-danger')}>{mine ? 'Declined' : 'Offer withdrawn'}</div>}
         <div className="whitespace-pre-wrap break-words">{m.body}</div>
       </div>
       <div className="text-[11px] text-muted-foreground">{mine ? 'You' : ''}{mine ? ' · ' : ''}{fmtDateTime(m.created_at)}</div>
@@ -56,7 +56,7 @@ export function ConversationThread({ collab }: { collab: Collaboration }) {
   return (
     <Card padded={false}>
       <div className="px-5 pt-5"><CardHeader title="Conversation" description={`Negotiation and updates with ${collab.brand_name ?? 'the brand'}`} className="mb-0" /></div>
-      <div className="max-h-[520px] space-y-4 overflow-y-auto px-5 py-4">
+      <div tabIndex={0} role="region" aria-label="Conversation" className="max-h-[520px] space-y-4 overflow-y-auto px-5 py-4 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring">
         {messages.length === 0 && <EmptyState compact icon={MessageSquare} title="No messages yet" description="Say hello or ask a question about the brief." />}
         {messages.map((m) => <Bubble key={m.id} m={m} brand={collab.brand_name} />)}
         <div ref={bottomRef} />

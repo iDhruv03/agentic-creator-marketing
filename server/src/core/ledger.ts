@@ -238,6 +238,7 @@ export interface LedgerQuery {
   campaign_id?: string;
   collaboration_id?: string;
   brand_id?: string;
+  brand_ids?: string[];
   creator_id?: string;
   entry_type?: string;
   limit?: number;
@@ -249,6 +250,7 @@ export function listLedger(q: LedgerQuery = {}): LedgerEntry[] {
   if (q.campaign_id) { where.push('l.campaign_id = ?'); params.push(q.campaign_id); }
   if (q.collaboration_id) { where.push('l.collaboration_id = ?'); params.push(q.collaboration_id); }
   if (q.brand_id) { where.push('c.brand_id = ?'); params.push(q.brand_id); }
+  if (q.brand_ids) { where.push(q.brand_ids.length ? `c.brand_id IN (${q.brand_ids.map(() => '?').join(',')})` : '0'); params.push(...q.brand_ids); }
   if (q.creator_id) { where.push('(l.credit_account = ? OR l.debit_account = ?)'); params.push(acct.creatorWallet(q.creator_id), acct.creatorWallet(q.creator_id)); }
   if (q.entry_type) { where.push('l.entry_type = ?'); params.push(q.entry_type); }
   const whereSql = where.length ? `WHERE ${where.join(' AND ')}` : '';

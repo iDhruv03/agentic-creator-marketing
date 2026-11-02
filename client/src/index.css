@@ -7,6 +7,7 @@
    ------------------------------------------------------------------ */
 @layer base {
   :root {
+    color-scheme: light;
     --background: 220 20% 98%;
     --foreground: 228 24% 10%;
     --surface: 0 0% 100%;
@@ -19,18 +20,23 @@
     --primary-foreground: 0 0% 100%;
     --primary-soft: 243 90% 95%;
     --muted: 220 16% 94%;
-    --muted-foreground: 224 10% 44%;
+    --muted-foreground: 224 10% 42%;
     --accent: 220 18% 95%;
     --accent-foreground: 228 24% 10%;
-    --success: 158 64% 38%;
+    --success: 158 64% 30%;
+    --success-foreground: 0 0% 100%;
     --success-soft: 152 70% 93%;
-    --warning: 32 95% 46%;
+    --warning: 30 95% 33%;
+    --warning-foreground: 0 0% 100%;
     --warning-soft: 40 100% 92%;
-    --danger: 350 80% 52%;
+    --danger: 350 80% 44%;
+    --danger-foreground: 0 0% 100%;
     --danger-soft: 350 100% 95%;
-    --info: 205 90% 46%;
+    --info: 205 90% 38%;
+    --info-foreground: 0 0% 100%;
     --info-soft: 205 100% 94%;
     --agent: 272 72% 54%;
+    --agent-foreground: 0 0% 100%;
     --agent-soft: 272 100% 95%;
     --shadow: 228 30% 10%;
     --chart-1: 243 75% 59%;
@@ -42,6 +48,7 @@
   }
 
   .dark {
+    color-scheme: dark;
     --background: 228 20% 6%;
     --foreground: 220 20% 94%;
     --surface: 228 18% 9%;
@@ -49,8 +56,8 @@
     --surface-raised: 228 16% 12%;
     --border: 228 12% 17%;
     --input: 228 12% 20%;
-    --ring: 243 80% 68%;
-    --primary: 243 80% 68%;
+    --ring: 243 80% 72%;
+    --primary: 243 80% 72%;
     --primary-foreground: 228 24% 8%;
     --primary-soft: 243 50% 18%;
     --muted: 228 14% 14%;
@@ -58,14 +65,19 @@
     --accent: 228 14% 14%;
     --accent-foreground: 220 20% 94%;
     --success: 158 60% 50%;
+    --success-foreground: 228 24% 8%;
     --success-soft: 158 45% 14%;
     --warning: 38 95% 58%;
+    --warning-foreground: 228 24% 8%;
     --warning-soft: 38 60% 15%;
     --danger: 350 85% 64%;
+    --danger-foreground: 228 24% 8%;
     --danger-soft: 350 50% 16%;
     --info: 205 90% 60%;
+    --info-foreground: 228 24% 8%;
     --info-soft: 205 60% 15%;
     --agent: 272 85% 72%;
+    --agent-foreground: 228 24% 8%;
     --agent-soft: 272 50% 17%;
     --shadow: 228 60% 2%;
     --chart-1: 243 80% 70%;
@@ -105,8 +117,18 @@
   }
 
   :focus-visible {
-    outline: 2px solid hsl(var(--ring) / 0.7);
+    outline: 2px solid hsl(var(--ring));
     outline-offset: 2px;
+  }
+
+  /* WCAG 2.3.3 / prefers-reduced-motion: keep state changes, drop motion. */
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
   }
 
   ::-webkit-scrollbar { width: 10px; height: 10px; }
@@ -148,7 +170,7 @@
     @apply mx-auto w-full max-w-[1400px] px-4 pb-16 pt-6 sm:px-6 lg:px-8;
   }
   .input {
-    @apply flex h-10 w-full rounded-xl border border-input bg-surface px-3.5 text-sm text-foreground shadow-sm transition placeholder:text-muted-foreground/70 hover:border-foreground/25 focus:border-primary focus:outline-none focus:ring-4 focus:ring-primary/15 disabled:cursor-not-allowed disabled:opacity-60;
+    @apply flex h-10 w-full rounded-xl border border-input bg-surface px-3.5 text-sm text-foreground shadow-sm transition placeholder:text-muted-foreground hover:border-foreground/25 focus:border-primary focus:outline-none focus:ring-4 focus:ring-primary/15 disabled:cursor-not-allowed disabled:opacity-60;
   }
   .textarea {
     @apply input h-auto min-h-[96px] resize-y py-2.5 leading-relaxed;
@@ -165,6 +187,9 @@
   .table-base th {
     @apply bg-surface-muted/70 px-4 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground first:rounded-l-xl last:rounded-r-xl;
   }
+  .table-base th > button {
+    @apply inline-flex items-center gap-1 rounded font-semibold uppercase tracking-wider text-muted-foreground transition hover:text-foreground;
+  }
   .table-base td {
     @apply border-b border-border/70 px-4 py-3 align-middle;
   }
@@ -174,6 +199,23 @@
   .prose-sm-muted {
     @apply text-sm leading-relaxed text-muted-foreground;
   }
+  /* Horizontal strips (tab lists, chip rows) on phones: scroll without a visible bar. */
+  .scrollbar-none {
+    scrollbar-width: none;
+  }
+  .scrollbar-none::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+@layer utilities {
+  /* Tone foregrounds (white in light, near-black in dark) so filled chips/buttons keep >= 4.5:1 in both themes.
+     Also declared via tailwind.config.js; duplicated here so a long-running dev server without a config reload still has them. */
+  .text-success-foreground { color: hsl(var(--success-foreground)); }
+  .text-warning-foreground { color: hsl(var(--warning-foreground)); }
+  .text-danger-foreground { color: hsl(var(--danger-foreground)); }
+  .text-info-foreground { color: hsl(var(--info-foreground)); }
+  .text-agent-foreground { color: hsl(var(--agent-foreground)); }
 }
 
 /* Recharts polish */
@@ -186,5 +228,17 @@
 [cmdk-group-heading] { @apply px-2 pb-1 pt-3 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground; }
 [cmdk-item] { @apply flex cursor-pointer items-center gap-3 rounded-lg px-2.5 py-2 text-sm text-foreground/90 aria-selected:bg-accent; }
 
-/* Sonner */
+/* Skip link (WCAG 2.4.1) */
+.skip-link { @apply sr-only; }
+.skip-link:focus { @apply not-sr-only fixed left-3 top-3 z-[100] rounded-lg bg-primary px-3 py-2 text-sm font-medium text-primary-foreground shadow-raised; }
+
+/* Sonner: map richColors toasts onto our tokens so they meet 4.5:1 in both themes
+   (sonner's injected amber/green/red defaults are ~3:1 in light). Specificity beats sonner's [data-sonner-toaster][data-theme] rules. */
+:root [data-sonner-toaster][data-theme] {
+  font-family: inherit;
+  --success-bg: hsl(var(--success-soft)); --success-border: hsl(var(--success) / 0.35); --success-text: hsl(var(--success));
+  --warning-bg: hsl(var(--warning-soft)); --warning-border: hsl(var(--warning) / 0.4); --warning-text: hsl(var(--warning));
+  --error-bg: hsl(var(--danger-soft)); --error-border: hsl(var(--danger) / 0.35); --error-text: hsl(var(--danger));
+  --info-bg: hsl(var(--info-soft)); --info-border: hsl(var(--info) / 0.35); --info-text: hsl(var(--info));
+}
 [data-sonner-toaster] { font-family: inherit; }

@@ -10,8 +10,8 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardHeader, Section } from '@/components/ui/card';
 import { Callout, EmptyState, Skeleton, SkeletonRows, Spinner } from '@/components/ui/feedback';
 import { Label, Select } from '@/components/ui/field';
-import { CodeBlock, Mono, CopyButton } from '@/components/ui/data';
-import { JsonBlock } from '@/components/agents/JsonBlock';
+import { CodeBlock, Mono, CopyButton, JsonView } from '@/components/ui/data';
+import { QueryError } from '@/components/collaborations/QueryError';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { ExecStatusBadge, ToolChip } from '@/components/ui/status';
 import { Tooltip } from '@/components/ui/overlay';
@@ -60,7 +60,7 @@ function ToolRow({ tool, allowed, onTry }: { tool: McpToolDefinition; allowed: b
               </table>
             </div>
           ) : <p className="mt-2 text-xs text-muted-foreground">No parameters.</p>}
-          <div className="mt-3 flex justify-end"><Button size="xs" variant="secondary" leftIcon={<Play className="h-3 w-3" />} onClick={onTry} disabled={allowed === false}>Try in playground</Button></div>
+          <div className="mt-3 flex justify-end"><Button size="xs" variant="secondary" leftIcon={<Play className="h-3 w-3" />} onClick={onTry}>{allowed === false ? 'Try in playground (will be blocked)' : 'Try in playground'}</Button></div>
         </div>
       )}
     </div>
@@ -94,11 +94,20 @@ export default function McpServer() {
   const sessionOptions = (sessions.data ?? []).map((s) => ({ value: s.id, label: s.name, description: `${SCOPE_META[s.role_scope].label} · ${s.status.toLowerCase()} · ${s.allowed_tools.length} tools` }));
   const allTools = registry.data?.all_tools ?? [];
   const scopedNames = scopeSession && scoped.data ? new Set(scoped.data.tools.map((t) => t.name)) : null;
-  const pgTools = pgSession ? (pgScoped.data?.tools ?? []) : allTools;
-  const tool = pgTools.find((t) => t.name === pgTool) ?? allTools.find((t) => t.name === pgTool);
+  // The playground lists every registered tool so out-of-scope calls can be demonstrated: the executor answers them
+  // with a permission-scope guardrail block, exactly as it would for an agent.
+  const pgAllowed = React.useMemo(() => (pgSession && pgScoped.data ? new Set(pgScoped.data.tools.map((t) => t.name)) : null), [pgSession, pgScoped.data]);
+  const pgTools = allTools;
+  const tool = allTools.find((t) => t.name === pgTool);
   const schema = tool?.inputSchema as JsonSchemaObject | undefined;
+  const toolInScope = tool ? (pgAllowed ? pgAllowed.has(tool.name) : true) : true;
+  const pgSessionName = sessions.data?.find((s) => s.id === pgSession)?.name;
 
-  React.useEffect(() => { if (pgTools.length && !pgTools.some((t) => t.name === pgTool)) { setPgTool(pgTools[0]!.name); setValues({}); setErrors({}); } }, [pgTools, pgTool]);
+  React.useEffect(() => {
+    if (!pgTools.length || pgTools.some((t) => t.name === pgTool)) return;
+    const first = (pgAllowed ? pgTools.find((t) => pgAllowed.has(t.name)) : undefined) ?? pgTools[0]!;
+    setPgTool(first.name); setValues({}); setErrors({});
+  }, [pgTools, pgTool, pgAllowed]);
 
   const call = useAction((session_id: string, tool_name: string, params: Record<string, unknown>) => api.agents.mcpCall(session_id, tool_name, params), {
     invalidate: ['audit', 'checkpoints', 'sessions', 'campaign', 'campaigns', 'collaborations', 'overview'],
@@ -162,7 +171,7 @@ export default function McpServer() {
           <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-2">
-                <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-agent text-white"><Server className="h-5 w-5" /></span>
+                <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-agent text-agent-foreground"><Server className="h-5 w-5" /></span>
                 <div>
                   <h2 className="font-display text-xl font-semibold">Governed MCP server</h2>
                   {registry.isLoading ? <Skeleton className="mt-1 h-3.5 w-64" /> : registry.data && <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground"><Mono>{registry.data.server.name}</Mono><span>v{registry.data.server.version}</span><span>·</span><span>protocol <Mono>{registry.data.protocol}</Mono></span></div>}
@@ -221,12 +230,12 @@ export default function McpServer() {
 
         {/* Registry */}
         <Section title="Tool registry" description="Expand a tool for its description and input schema. Choose a session to see what it can call." action={<div className="w-60 max-w-full"><Select size="sm" value={scopeSession} onValueChange={setScopeSession} options={sessionOptions} allowEmpty="All tools (no session)" placeholder="Scope to session" /></div>}>
-          {registry.isLoading ? <div className="card p-5"><SkeletonRows rows={6} /></div> : allTools.length === 0 ? <EmptyState icon={Wrench} title="No tools registered" /> : (
+          {registry.isLoading ? <div className="card p-5"><SkeletonRows rows={6} /></div> : registry.isError ? <QueryError what="the tool registry" error={registry.error} refetch={registry.refetch} /> : allTools.length === 0 ? <EmptyState icon={Wrench} title="No tools registered" /> : (
             <div className="space-y-5">
               {scopedNames && <Callout tone="info">{scopedNames.size} of {allTools.length} tools are callable by <strong>{sessions.data?.find((s) => s.id === scopeSession)?.name}</strong>. Greyed tools are outside its scope — calling them is a permission-scope guardrail block.</Callout>}
               {grouped.map((g) => (
                 <Card key={g.key} padded={false} className="p-4">
-                  <div className="mb-3 flex items-center justify-between gap-2"><div><h3 className="text-[14px] font-semibold">{g.label}</h3><p className="text-xs text-muted-foreground">{g.description}</p></div><Badge tone="neutral" size="sm">{scopedNames ? `${g.tools.filter((t) => scopedNames.has(t.name)).length}/` : ''}{g.tools.length}</Badge></div>
+                  <CardHeader className="mb-3" title={g.label} description={g.description} action={<Badge tone="neutral" size="sm">{scopedNames ? `${g.tools.filter((t) => scopedNames.has(t.name)).length}/` : ''}{g.tools.length}</Badge>} />
                   <div className="space-y-2">{g.tools.map((t) => <ToolRow key={t.name} tool={t} allowed={scopedNames ? scopedNames.has(t.name) : null} onTry={() => tryTool(t.name)} />)}</div>
                 </Card>
               ))}
@@ -241,13 +250,18 @@ export default function McpServer() {
               <Card className="xl:col-span-2">
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div><Label>Session</Label><Select value={pgSession} onValueChange={(v) => { setPgSession(v); setErrors({}); }} options={sessionOptions} placeholder="Session" /></div>
-                  <div><Label>Tool</Label><Select value={pgTool} onValueChange={(v) => { setPgTool(v); setValues({}); setErrors({}); }} options={pgTools.map((t) => ({ value: t.name, label: <span className="font-mono text-[12.5px]">{t.name}</span>, description: t.title }))} placeholder={pgScoped.isLoading ? 'Loading…' : 'Tool'} /></div>
+                  <div><Label>Tool</Label><Select value={pgTool} onValueChange={(v) => { setPgTool(v); setValues({}); setErrors({}); }} options={pgTools.map((t) => ({ value: t.name, label: <span className={cn('font-mono text-[12.5px]', pgAllowed && !pgAllowed.has(t.name) && 'text-muted-foreground line-through decoration-muted-foreground/60')}>{t.name}</span>, description: pgAllowed && !pgAllowed.has(t.name) ? `${t.title} · not in scope — will be blocked` : t.title }))} placeholder={pgScoped.isLoading ? 'Loading…' : 'Tool'} /></div>
                 </div>
                 {tool && (
                   <div className="mt-4 rounded-xl border border-border bg-surface-muted/40 p-3 text-[12.5px] text-muted-foreground">
                     <div className="mb-1 flex flex-wrap items-center gap-1.5"><ToolChip name={tool.name} /><RiskToneBadge risk={tool.risk} size="sm" /><Badge tone="outline" size="sm">{tool.category}</Badge></div>
                     {tool.description}
                   </div>
+                )}
+                {tool && !toolInScope && (
+                  <Callout tone="danger" icon={ShieldAlert} className="mt-3" title={`Not granted to ${pgSessionName ?? 'this session'}`}>
+                    <ToolChip name={tool.name} /> is outside the session's scope. The governed executor will answer with a <strong>permission-scope guardrail block</strong> — nothing is written, and the attempt is still audited.
+                  </Callout>
                 )}
                 <div className="mt-4"><ToolSchemaForm schema={schema} values={values} onChange={setValues} errors={errors} /></div>
                 <div className="mt-5 flex items-center justify-between gap-3">
@@ -270,7 +284,7 @@ export default function McpServer() {
                         <Callout tone="warning" icon={ShieldAlert} title="Held for human approval">The action has not executed. <Link to={`/approvals?checkpoint=${lastResult.checkpoint_id}`} className="inline-flex items-center gap-1 font-medium underline-offset-2 hover:underline">Review checkpoint <ArrowRight className="h-3 w-3" /></Link></Callout>
                       )}
                       {lastResult.error && lastResult.status !== 'HELD_FOR_APPROVAL' && <Callout tone={lastResult.status === 'REJECTED_BY_GUARDRAIL' ? 'danger' : 'neutral'}>{lastResult.error}</Callout>}
-                      <JsonBlock value={lastResult.result ?? { error: lastResult.error }} maxHeight={360} />
+                      <JsonView value={lastResult.result ?? { error: lastResult.error }} maxHeight={360} />
                       <div className="text-[11px] text-muted-foreground">audit <Mono copy>{lastResult.audit_id}</Mono></div>
                     </div>
                   )}

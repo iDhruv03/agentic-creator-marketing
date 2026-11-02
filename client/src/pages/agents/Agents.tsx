@@ -16,6 +16,7 @@ import { CreateSessionDialog } from '@/components/agents/CreateSessionDialog';
 import { LaunchRunDialog } from '@/components/agents/LaunchRunDialog';
 import { SessionCard } from '@/components/agents/SessionCard';
 import { modeLabel } from '@/components/agents/shared';
+import { QueryError } from '@/components/collaborations/QueryError';
 
 export default function Agents() {
   const navigate = useNavigate();
@@ -81,7 +82,7 @@ export default function Agents() {
         )}
 
         <Section title="Sessions" description="Each session is a scoped identity with its own ceilings and tool list.">
-          {sessions.isLoading ? <SkeletonCards count={3} className="xl:grid-cols-3" /> : list.length === 0 ? (
+          {sessions.isLoading ? <SkeletonCards count={3} className="xl:grid-cols-3" /> : sessions.isError ? <QueryError what="agent sessions" error={sessions.error} refetch={sessions.refetch} /> : list.length === 0 ? (
             <EmptyState icon={Bot} title="No agent sessions yet" description="Authorise an agent with a scope, a budget ceiling and a rate ceiling. It can only act inside those bounds." action={<Button variant="agent" leftIcon={<Plus className="h-4 w-4" />} onClick={() => setCreateOpen(true)}>Authorise agent</Button>} />
           ) : (
             <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
@@ -97,7 +98,7 @@ export default function Agents() {
         </Section>
       </div>
 
-      <CreateSessionDialog open={createOpen} onOpenChange={closeCreate} />
+      <CreateSessionDialog open={createOpen} onOpenChange={closeCreate} defaultCampaignId={params.get('campaign_id') ?? undefined} />
       <LaunchRunDialog open={launch.open} onOpenChange={(o) => setLaunch((l) => ({ ...l, open: o }))} defaultSessionId={launch.sessionId} />
     </div>
   );

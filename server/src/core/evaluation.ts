@@ -15,6 +15,7 @@ export interface Scenario {
   name: string;
   description: string;
   brand_id: string;
+  brand_name: string;
   niche: string;
   platforms: string[];
   budget: number;
@@ -24,9 +25,10 @@ export interface Scenario {
 }
 
 export const SCENARIOS: Scenario[] = [
-  { key: 'tech_launch', name: 'Tech product launch (YouTube + IG)', description: 'Mid-tier tech reviewers for a hardware launch with a long-form video and a reel.', brand_id: 'brand_techpulse', niche: 'Tech & Gadgets', platforms: ['youtube', 'instagram'], budget: 12000, rate_band: [800, 2400], deliverables: ['1x YouTube Video', '1x Instagram Reel'], creators_to_evaluate: 20 },
-  { key: 'beauty_ugc', name: 'Beauty UGC burst (TikTok + IG)', description: 'Short-form skincare content from micro and mid-tier creators.', brand_id: 'brand_glow', niche: 'Beauty & Skincare', platforms: ['tiktok', 'instagram'], budget: 6000, rate_band: [300, 1200], deliverables: ['2x TikTok Video', '1x Instagram Reel'], creators_to_evaluate: 25 },
-  { key: 'fitness_program', name: 'Fitness program ambassadors', description: 'Athlete creators for a 6-week training program with weekly check-ins.', brand_id: 'brand_apex', niche: 'Fitness & Apparel', platforms: ['instagram', 'youtube'], budget: 9000, rate_band: [500, 1800], deliverables: ['1x YouTube Video', '2x Instagram Reel', '4x Story'], creators_to_evaluate: 15 },
+  { key: 'tech_launch', name: 'Tech product launch (YouTube + IG)', description: 'Mid-tier tech reviewers for a hardware launch with a long-form video and a reel.', brand_id: 'brand_techpulse', brand_name: 'TechPulse Audio', niche: 'Tech & Gadgets', platforms: ['youtube', 'instagram'], budget: 12000, rate_band: [800, 2400], deliverables: ['1x YouTube Video', '1x Instagram Reel'], creators_to_evaluate: 20 },
+  { key: 'beauty_ugc', name: 'Beauty UGC burst (TikTok + IG)', description: 'Short-form skincare content from micro and mid-tier creators.', brand_id: 'brand_glow', brand_name: 'Glow Botanicals', niche: 'Beauty & Skincare', platforms: ['tiktok', 'instagram'], budget: 6000, rate_band: [300, 1200], deliverables: ['2x TikTok Video', '1x Instagram Reel'], creators_to_evaluate: 25 },
+  { key: 'india_beauty', name: 'India skincare launch (IG + YouTube)', description: 'Hindi/English skincare and lifestyle creators with ≥70% India audience for a D2C serum launch.', brand_id: 'brand_zestra', brand_name: 'Zestra Naturals', niche: 'Beauty & Skincare', platforms: ['instagram', 'youtube'], budget: 8000, rate_band: [250, 1200], deliverables: ['1x Instagram Reel', '1x YouTube Video', '3x Instagram Story'], creators_to_evaluate: 18 },
+  { key: 'fitness_program', name: 'Fitness program ambassadors', description: 'Athlete creators for a 6-week training program with weekly check-ins.', brand_id: 'brand_apex', brand_name: 'Apex Athletics', niche: 'Fitness & Apparel', platforms: ['instagram', 'youtube'], budget: 9000, rate_band: [500, 1800], deliverables: ['1x YouTube Video', '2x Instagram Reel', '4x Story'], creators_to_evaluate: 15 },
 ];
 
 /**

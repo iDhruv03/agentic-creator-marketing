@@ -30,7 +30,7 @@ export default function CollaborationDetail() {
   if (collab.isLoading) {
     return (
       <div className="page">
-        <div className="mb-6 space-y-3"><Skeleton className="h-3.5 w-64" /><Skeleton className="h-8 w-80" /><Skeleton className="h-4 w-96" /></div>
+        <PageHeader crumbs={[{ label: 'Collaborations', to: '/collaborations' }]} title={<Skeleton className="h-8 w-80" />} description={<Skeleton className="h-4 w-96" />} />
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">{Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-20 rounded-2xl" />)}</div>
         <div className="mt-6 grid gap-6 lg:grid-cols-3"><div className="space-y-6 lg:col-span-2"><div className="card p-5"><SkeletonRows rows={5} /></div><div className="card p-5"><SkeletonRows rows={3} /></div></div><div className="space-y-6"><div className="card p-5"><SkeletonRows rows={4} /></div></div></div>
       </div>
@@ -115,7 +115,7 @@ export default function CollaborationDetail() {
               <div className="mt-3 grid grid-cols-2 gap-2 text-[13px]">
                 <div className="rounded-xl bg-surface-muted/70 px-3 py-2"><div className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Available</div><div className="font-semibold tabular-nums">{money(fin.available)}</div></div>
                 <div className="rounded-xl bg-surface-muted/70 px-3 py-2"><div className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Budget</div><div className="font-semibold tabular-nums">{money(fin.budget)}</div></div>
-                <div className="col-span-2"><div className="mb-1 flex justify-between text-[11px] text-muted-foreground"><span>{money(fin.committed)} committed</span><span>{fin.utilisation_pct.toFixed(0)}%</span></div><Progress value={1} segments={[{ value: (fin.spent / (fin.budget || 1)) * 100, tone: 'success' }, { value: (fin.escrow_locked / (fin.budget || 1)) * 100, tone: 'warning' }]} size="sm" /></div>
+                <div className="col-span-2"><div className="mb-1 flex justify-between text-[11px] text-muted-foreground tabular-nums"><span>{money(fin.committed)} committed</span><span>{fin.utilisation_pct.toFixed(0)}%</span></div><Progress value={1} segments={[{ value: (fin.spent / (fin.budget || 1)) * 100, tone: 'success' }, { value: (fin.escrow_locked / (fin.budget || 1)) * 100, tone: 'warning' }]} size="sm" /></div>
               </div>
             )}
           </Card>

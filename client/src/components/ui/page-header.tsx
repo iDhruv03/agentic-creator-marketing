@@ -10,11 +10,11 @@ export function PageHeader({ title, description, actions, crumbs, meta, classNam
     <div className={cn('mb-6 flex flex-col gap-4 md:flex-row md:items-end md:justify-between', compact && 'mb-4', className)}>
       <div className="min-w-0">
         {crumbs && crumbs.length > 0 && (
-          <nav className="mb-2 flex items-center gap-1 text-[12.5px] text-muted-foreground">
+          <nav aria-label="Breadcrumb" className="mb-2 flex items-center gap-1 text-[12.5px] text-muted-foreground">
             {crumbs.map((c, i) => (
               <React.Fragment key={i}>
-                {i > 0 && <ChevronRight className="h-3.5 w-3.5 opacity-60" />}
-                {c.to ? <Link to={c.to} className="transition hover:text-foreground">{c.label}</Link> : <span className="text-foreground/80">{c.label}</span>}
+                {i > 0 && <ChevronRight aria-hidden className="h-3.5 w-3.5 opacity-60" />}
+                {c.to ? <Link to={c.to} className="rounded transition hover:text-foreground">{c.label}</Link> : <span className="text-foreground/80" aria-current={i === crumbs.length - 1 ? 'page' : undefined}>{c.label}</span>}
               </React.Fragment>
             ))}
           </nav>

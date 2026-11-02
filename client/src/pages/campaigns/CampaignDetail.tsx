@@ -126,7 +126,7 @@ export default function CampaignDetail() {
   if (q.isLoading) {
     return (
       <div className="page">
-        <div className="mb-6 space-y-3"><Skeleton className="h-3.5 w-40" /><Skeleton className="h-8 w-2/3 max-w-md" /><Skeleton className="h-3.5 w-1/2 max-w-sm" /></div>
+        <PageHeader crumbs={[{ label: 'Campaigns', to: '/campaigns' }, { label: <Skeleton className="h-3.5 w-24" /> }]} title={<Skeleton className="h-8 w-64 max-w-full" />} description={<Skeleton className="h-3.5 w-80 max-w-full" />} />
         <Skeleton className="mb-6 h-10 w-full" />
         <SkeletonCards />
       </div>
@@ -148,7 +148,7 @@ export default function CampaignDetail() {
         meta={<CampaignStatusBadge status={c.status} />}
         description={
           <span className="flex flex-wrap items-center gap-x-4 gap-y-1">
-            <span className="inline-flex items-center gap-1.5"><Building2 className="h-3.5 w-3.5" />{c.brand_name}{c.agency_name ? <span className="text-muted-foreground/80"> · via {c.agency_name}</span> : null}</span>
+            <span className="inline-flex items-center gap-1.5"><Building2 className="h-3.5 w-3.5" />{c.brand_name}{c.agency_name ? <span className="text-muted-foreground"> · via {c.agency_name}</span> : null}</span>
             <span className="inline-flex items-center gap-1.5"><CalendarDays className="h-3.5 w-3.5" />{c.start_date || c.end_date ? `${fmtDate(c.start_date)} → ${fmtDate(c.end_date)}` : 'No dates set'}</span>
             <span className="inline-flex items-center gap-1.5"><PlatformIcons platforms={c.target_platforms} /></span>
             <span className="inline-flex items-center gap-1.5"><Hash className="h-3.5 w-3.5" />{c.target_niches.slice(0, 2).join(', ')}{c.target_niches.length > 2 ? ` +${c.target_niches.length - 2}` : ''}</span>

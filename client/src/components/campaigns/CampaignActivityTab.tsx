@@ -25,7 +25,7 @@ export function CampaignActivityTab({ campaign }: { campaign: Campaign }) {
             tone: a.execution_status === 'REJECTED_BY_GUARDRAIL' ? 'danger' : a.execution_status === 'HELD_FOR_APPROVAL' ? 'warning' : a.actor_type === 'AGENT' ? 'agent' : a.actor_type === 'SYSTEM' ? 'neutral' : 'primary',
             icon: a.actor_type === 'AGENT' ? <Bot /> : a.actor_type === 'SYSTEM' ? <Cpu /> : <User />,
             title: <span className="flex flex-wrap items-center gap-1.5"><ActorBadge type={a.actor_type} name={a.actor_name ?? undefined} size="sm" /><ToolChip name={a.tool_name} /><ExecStatusBadge status={a.execution_status} size="sm" /></span>,
-            body: <span>{a.result_summary}{a.guardrail_notes ? <span className={`mt-1 block text-xs ${a.execution_status === 'REJECTED_BY_GUARDRAIL' ? 'text-danger' : a.execution_status === 'HELD_FOR_APPROVAL' ? 'text-warning' : 'text-muted-foreground/80'}`}>{a.guardrail_notes}</span> : null}{a.run_id ? <Link to={`/agents/runs/${a.run_id}`} className="ml-1 text-xs font-medium text-primary hover:underline">run</Link> : null}</span>,
+            body: <span>{a.result_summary}{a.guardrail_notes ? <span className={`mt-1 block text-xs ${a.execution_status === 'REJECTED_BY_GUARDRAIL' ? 'text-danger' : a.execution_status === 'HELD_FOR_APPROVAL' ? 'text-warning' : 'text-muted-foreground'}`}>{a.guardrail_notes}</span> : null}{a.run_id ? <Link to={`/agents/runs/${a.run_id}`} className="ml-1 text-xs font-medium text-primary hover:underline">run</Link> : null}</span>,
             meta: <span title={fmtDateTime(a.timestamp)}>{timeAgo(a.timestamp)}{a.duration_ms ? ` · ${duration(a.duration_ms / 1000)}` : ''}</span>,
           }))} />
         )}

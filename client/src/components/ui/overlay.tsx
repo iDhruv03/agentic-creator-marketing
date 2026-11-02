@@ -7,20 +7,32 @@ import { X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from './button';
 
+/** Dialog/Sheet are controlled (no Radix Trigger), so Radix's default close-focus (the trigger ref) is null and focus would drop to <body>.
+ *  Remember what was focused when `open` flipped to true and restore it on close (WCAG 2.4.3 focus order). */
+export function useReturnFocus(open: boolean) {
+  const prev = React.useRef<HTMLElement | null>(null);
+  React.useEffect(() => { if (open) prev.current = (document.activeElement as HTMLElement | null) ?? null; }, [open]);
+  return React.useCallback((e: Event) => {
+    const el = prev.current;
+    if (el && el.isConnected) { e.preventDefault(); el.focus({ preventScroll: true }); }
+  }, []);
+}
+
 /* ---------------------------------------------------------------- Dialog */
 export function Dialog({ open, onOpenChange, title, description, children, footer, size = 'md', className }: { open: boolean; onOpenChange: (o: boolean) => void; title: React.ReactNode; description?: React.ReactNode; children?: React.ReactNode; footer?: React.ReactNode; size?: 'sm' | 'md' | 'lg' | 'xl'; className?: string }) {
   const widths = { sm: 'max-w-md', md: 'max-w-lg', lg: 'max-w-2xl', xl: 'max-w-4xl' };
+  const onCloseAutoFocus = useReturnFocus(open);
   return (
     <DialogPrimitive.Root open={open} onOpenChange={onOpenChange}>
       <DialogPrimitive.Portal>
         <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-black/40 backdrop-blur-[2px] animate-fade-in" />
-        <DialogPrimitive.Content className={cn('fixed left-1/2 top-1/2 z-50 flex max-h-[90vh] w-[calc(100vw-2rem)] -translate-x-1/2 -translate-y-1/2 flex-col rounded-2xl border border-border bg-surface-raised shadow-overlay animate-scale-in focus:outline-none', widths[size], className)}>
+        <DialogPrimitive.Content onCloseAutoFocus={onCloseAutoFocus} {...(description ? {} : { 'aria-describedby': undefined })} className={cn('fixed left-1/2 top-1/2 z-50 flex max-h-[90vh] w-[calc(100vw-2rem)] -translate-x-1/2 -translate-y-1/2 flex-col rounded-2xl border border-border bg-surface-raised shadow-overlay animate-scale-in focus:outline-none', widths[size], className)}>
           <div className="flex items-start justify-between gap-4 border-b border-border px-6 py-4">
             <div>
               <DialogPrimitive.Title className="text-base font-semibold">{title}</DialogPrimitive.Title>
               {description && <DialogPrimitive.Description className="mt-1 text-[13px] text-muted-foreground">{description}</DialogPrimitive.Description>}
             </div>
-            <DialogPrimitive.Close className="rounded-lg p-1.5 text-muted-foreground transition hover:bg-accent hover:text-foreground"><X className="h-4 w-4" /></DialogPrimitive.Close>
+            <DialogPrimitive.Close aria-label="Close" className="-mr-1.5 -mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition hover:bg-accent hover:text-foreground"><X className="h-4 w-4" /></DialogPrimitive.Close>
           </div>
           <div className="min-h-0 flex-1 overflow-y-auto px-6 py-5">{children}</div>
           {footer && <div className="flex items-center justify-end gap-2 border-t border-border px-6 py-4">{footer}</div>}
@@ -33,18 +45,19 @@ export function Dialog({ open, onOpenChange, title, description, children, foote
 /* ---------------------------------------------------------------- Sheet (side drawer) */
 export function Sheet({ open, onOpenChange, title, description, children, footer, side = 'right', width = 'md', className }: { open: boolean; onOpenChange: (o: boolean) => void; title?: React.ReactNode; description?: React.ReactNode; children?: React.ReactNode; footer?: React.ReactNode; side?: 'right' | 'left'; width?: 'sm' | 'md' | 'lg' | 'xl'; className?: string }) {
   const widths = { sm: 'sm:max-w-md', md: 'sm:max-w-xl', lg: 'sm:max-w-2xl', xl: 'sm:max-w-4xl' };
+  const onCloseAutoFocus = useReturnFocus(open);
   return (
     <DialogPrimitive.Root open={open} onOpenChange={onOpenChange}>
       <DialogPrimitive.Portal>
         <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-black/40 backdrop-blur-[2px] animate-fade-in" />
-        <DialogPrimitive.Content className={cn('fixed inset-y-0 z-50 flex w-full flex-col border-border bg-surface shadow-overlay focus:outline-none', side === 'right' ? 'right-0 border-l' : 'left-0 border-r', widths[width], className)} style={{ animation: `${side === 'right' ? 'sheet-in-right' : 'sheet-in-left'} 240ms cubic-bezier(0.16,1,0.3,1)` }}>
+        <DialogPrimitive.Content onCloseAutoFocus={onCloseAutoFocus} aria-describedby={undefined} className={cn('fixed inset-y-0 z-50 flex w-full flex-col border-border bg-surface shadow-overlay focus:outline-none', side === 'right' ? 'right-0 border-l' : 'left-0 border-r', widths[width], className)} style={{ animation: `${side === 'right' ? 'sheet-in-right' : 'sheet-in-left'} 240ms cubic-bezier(0.16,1,0.3,1)` }}>
           {(title || description) && (
             <div className="flex items-start justify-between gap-4 border-b border-border px-6 py-4">
               <div className="min-w-0">
                 {title && <DialogPrimitive.Title className="truncate text-base font-semibold">{title}</DialogPrimitive.Title>}
                 {description && <DialogPrimitive.Description className="mt-0.5 text-[13px] text-muted-foreground">{description}</DialogPrimitive.Description>}
               </div>
-              <DialogPrimitive.Close className="rounded-lg p-1.5 text-muted-foreground transition hover:bg-accent hover:text-foreground"><X className="h-4 w-4" /></DialogPrimitive.Close>
+              <DialogPrimitive.Close aria-label="Close" className="-mr-1.5 -mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition hover:bg-accent hover:text-foreground"><X className="h-4 w-4" /></DialogPrimitive.Close>
             </div>
           )}
           {!title && !description && <DialogPrimitive.Title className="sr-only">Panel</DialogPrimitive.Title>}

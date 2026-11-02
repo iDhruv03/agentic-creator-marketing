@@ -36,7 +36,7 @@ export default function CreatorOfferDetail() {
   if (collab.isLoading) {
     return (
       <div className="page">
-        <div className="mb-6 space-y-3"><Skeleton className="h-4 w-40" /><Skeleton className="h-8 w-2/3" /><Skeleton className="h-4 w-1/2" /></div>
+        <PageHeader crumbs={[{ label: 'Offers & work', to: '/creator/offers' }]} title={<Skeleton className="h-8 w-80" />} description={<Skeleton className="h-4 w-96" />} />
         <div className="grid gap-6 lg:grid-cols-3"><div className="space-y-6 lg:col-span-2"><div className="card p-5"><SkeletonRows rows={4} /></div><div className="card p-5"><SkeletonRows rows={3} /></div></div><div className="space-y-6"><div className="card p-5"><SkeletonRows rows={2} /></div><div className="card p-5"><SkeletonRows rows={2} /></div></div></div>
       </div>
     );
@@ -66,7 +66,7 @@ export default function CreatorOfferDetail() {
         description={<span className="flex flex-wrap items-center gap-x-4 gap-y-1">
           <span className="font-semibold tabular-nums text-foreground">{money(rate)} <span className="font-normal text-muted-foreground">{c.agreed_rate != null ? 'agreed' : 'proposed'}</span></span>
           {dl && <span className={cn('flex items-center gap-1', dl.past && !closed ? 'font-medium text-danger' : dl.soon ? 'text-warning' : '')}><CalendarClock className="h-3.5 w-3.5" />Due {fmtDate(c.deadline)} ({dl.label})</span>}
-          {c.escrow_held > 0 && <span className="flex items-center gap-1 text-success"><Lock className="h-3.5 w-3.5" />{money(c.escrow_held)} secured in escrow</span>}
+          {c.escrow_held > 0 && <span className="flex items-center gap-1 tabular-nums text-success"><Lock className="h-3.5 w-3.5" />{money(c.escrow_held)} secured in escrow</span>}
         </span>}
       />
 

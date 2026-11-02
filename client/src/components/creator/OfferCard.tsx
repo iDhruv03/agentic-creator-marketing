@@ -52,7 +52,7 @@ export function OfferCard({ collab, actions, className }: { collab: Collaboratio
       <div className="relative z-10 pointer-events-none flex flex-wrap gap-1.5">
         {collab.deliverables.map((d) => (
           <span key={d.id} className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-surface-muted/60 py-1 pl-1.5 pr-2 text-xs">
-            <PlatformIcon platform={d.platform} className="h-4 w-4 text-[9px]" />
+            <PlatformIcon platform={d.platform} />
             <span className="font-medium">{deliverableLabel(d.deliverable_type)}</span>
             {!open && <DeliverableStatusBadge status={d.status} size="sm" />}
           </span>

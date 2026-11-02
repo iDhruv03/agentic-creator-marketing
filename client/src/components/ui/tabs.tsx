@@ -8,7 +8,7 @@ export const TabsContent = TabsPrimitive.Content;
 /** Underlined tab list, used for page-level navigation inside a detail view. */
 export function TabsList({ className, children, ...props }: TabsPrimitive.TabsListProps) {
   return (
-    <TabsPrimitive.List className={cn('flex items-center gap-1 overflow-x-auto border-b border-border', className)} {...props}>
+    <TabsPrimitive.List className={cn('scrollbar-none flex items-center gap-1 overflow-x-auto border-b border-border [mask-image:linear-gradient(to_right,black_calc(100%-28px),transparent)] sm:[mask-image:none]', className)} {...props}>
       {children}
     </TabsPrimitive.List>
   );

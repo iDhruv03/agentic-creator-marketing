@@ -124,7 +124,8 @@ export class CmiMcpServer {
             return { payment_status: 'RELEASED', amount: out.amount, ledger_entry_id: out.ledger_entry_id, collaboration_status: out.collaboration.status };
           }
           case 'send_collaboration_offer': {
-            const col = sendOffer(p, { ...actor, session_id: session.id });
+            // The agent proposed it; the reviewer merely authorised it. Keep the agent as initiator, audit the reviewer.
+            const col = sendOffer({ ...p, initiated_by: 'AGENT' }, { ...actor, session_id: session.id });
             recordSessionSpend(session.id, Number(p.proposed_rate));
             return { collaboration_id: col.id, status: col.status, proposed_rate: col.proposed_rate };
           }

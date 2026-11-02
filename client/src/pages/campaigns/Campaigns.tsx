@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Plus, LayoutGrid, List, Megaphone, Wallet, PlayCircle, ShieldAlert, Layers, SearchX } from 'lucide-react';
+import { Plus, LayoutGrid, List, Megaphone, Wallet, PlayCircle, ShieldAlert, Layers, SearchX, AlertTriangle } from 'lucide-react';
 import type { Campaign, CampaignStatus } from '@/types';
 import { useCampaigns, useBrands } from '@/hooks/queries';
 import { useAuth } from '@/store/auth';
@@ -65,7 +65,7 @@ export default function Campaigns() {
         actions={<Button leftIcon={<Plus className="h-4 w-4" />} onClick={() => navigate('/campaigns/new')}>New campaign</Button>}
       />
 
-      {all.isLoading ? <SkeletonCards /> : (
+      {all.isLoading ? <SkeletonCards /> : all.isError ? null : (
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <Stat label="Campaigns" value={num(totals.campaigns)} icon={Layers} tone="primary" hint={`${totals.active} active`} />
           <Stat label="Active" value={num(totals.active)} icon={PlayCircle} tone="success" hint={`${totals.campaigns - totals.active} draft, paused or done`} onClick={() => setParam('status', 'ACTIVE')} />
@@ -76,18 +76,20 @@ export default function Campaigns() {
 
       <div className="mt-6 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-          <div className="overflow-x-auto"><SegmentedControl size="sm" options={STATUS_OPTIONS} value={status} onChange={(v) => setParam('status', v === 'ALL' ? '' : v)} /></div>
-          {isAgency && <Select size="sm" className="sm:w-56" value={brandId} onValueChange={(v) => setParam('brand_id', v)} allowEmpty="All clients" placeholder="All clients" options={(brands.data ?? []).map((b) => ({ value: b.id, label: b.name }))} />}
+          <div className="overflow-x-auto"><SegmentedControl size="md" label="Filter by status" options={STATUS_OPTIONS} value={status} onChange={(v) => setParam('status', v === 'ALL' ? '' : v)} /></div>
+          {isAgency && <Select size="md" className="sm:w-56" value={brandId} onValueChange={(v) => setParam('brand_id', v)} allowEmpty="All clients" placeholder="All clients" options={(brands.data ?? []).map((b) => ({ value: b.id, label: b.name }))} />}
         </div>
         <div className="flex items-center gap-2">
-          <SearchInput value={search} onChange={(v) => { setSearch(v); setParam('q', v); }} placeholder="Search title, brand or niche…" className="h-9 sm:w-64" />
-          <SegmentedControl size="sm" options={[{ value: 'cards', label: <LayoutGrid className="h-4 w-4" /> }, { value: 'table', label: <List className="h-4 w-4" /> }]} value={view} onChange={(v) => setParam('view', v === 'cards' ? '' : v)} />
+          <SearchInput value={search} onChange={(v) => { setSearch(v); setParam('q', v); }} placeholder="Search title, brand or niche…" className="sm:w-64" />
+          <SegmentedControl size="md" label="View" options={[{ value: 'cards', label: <LayoutGrid className="h-4 w-4" />, title: 'Card view' }, { value: 'table', label: <List className="h-4 w-4" />, title: 'Table view' }]} value={view} onChange={(v) => setParam('view', v === 'cards' ? '' : v)} />
         </div>
       </div>
 
       <div className="mt-4">
         {list.isLoading ? (
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">{Array.from({ length: 6 }).map((_, i) => <div key={i} className="card space-y-3 p-5"><div className="flex items-center gap-3"><Skeleton className="h-10 w-10 rounded-xl" /><div className="flex-1 space-y-2"><Skeleton className="h-3.5 w-2/3" /><Skeleton className="h-3 w-1/3" /></div></div><Skeleton className="h-3 w-1/2" /><Skeleton className="h-2 w-full" /><Skeleton className="h-3 w-3/4" /></div>)}</div>
+        ) : list.isError ? (
+          <EmptyState icon={AlertTriangle} title="Couldn't load campaigns" description={list.error instanceof Error ? list.error.message : 'Try again in a moment.'} action={<Button size="sm" variant="secondary" onClick={() => list.refetch()}>Retry</Button>} />
         ) : rows.length === 0 ? (
           hasFilter ? <EmptyState icon={SearchX} title="No campaigns match" description="Try a different status, client or search term." action={<Button variant="secondary" size="sm" onClick={clear}>Clear filters</Button>} />
             : <EmptyState icon={Megaphone} title="No campaigns yet" description="Create a campaign with a brief, budget and rate band — then let an agent source creators inside those limits." action={<Button leftIcon={<Plus className="h-4 w-4" />} onClick={() => navigate('/campaigns/new')}>New campaign</Button>} />

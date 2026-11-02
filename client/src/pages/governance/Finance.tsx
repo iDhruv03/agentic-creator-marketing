@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { Link } from 'react-router-dom';
-import { Wallet, Lock, CheckCircle2, PiggyBank, ArrowRight, Megaphone, Handshake, Scale, Receipt } from 'lucide-react';
+import { Wallet, Lock, CheckCircle2, PiggyBank, ArrowRight, Megaphone, Handshake, Scale, Receipt, AlertTriangle } from 'lucide-react';
 import { useCampaigns, useLedger, useTrialBalance, useSessions, useCreators, useBrands } from '@/hooks/queries';
 import type { Campaign, LedgerEntry } from '@/types';
 import { money, pct, fmtDate, cn } from '@/lib/utils';
@@ -8,6 +8,7 @@ import { PageHeader } from '@/components/ui/page-header';
 import { Stat, SkeletonCards, SkeletonRows, EmptyState, Progress } from '@/components/ui/feedback';
 import { Card, CardHeader } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Select } from '@/components/ui/field';
 import { Tooltip } from '@/components/ui/overlay';
 import { DataTable, type Column } from '@/components/ui/data';
@@ -44,7 +45,7 @@ export default function Finance() {
   const escrowSegments = (campaigns.data ?? []).filter((c) => c.financials.escrow_locked > 0).map((c, i) => ({ label: c.title, value: c.financials.escrow_locked, color: CHART_SERIES[i % CHART_SERIES.length]! }));
 
   const campaignColumns: Column<Campaign>[] = [
-    { key: 'title', header: 'Campaign', sortValue: (c) => c.title, render: (c) => <Link to={`/campaigns/${c.id}`} className="block max-w-[200px] truncate text-[13.5px] font-medium hover:text-primary">{c.title}</Link> },
+    { key: 'title', header: 'Campaign', sortValue: (c) => c.title, render: (c) => <Link to={`/campaigns/${c.id}`} title={c.title} className="block max-w-[200px] truncate text-[13.5px] font-medium hover:text-primary">{c.title}</Link> },
     { key: 'brand', header: 'Brand', sortValue: (c) => c.brand_name ?? '', render: (c) => <span className="whitespace-nowrap text-[13px] text-muted-foreground">{c.brand_name}</span> },
     { key: 'status', header: 'Status', sortValue: (c) => c.status, render: (c) => <CampaignStatusBadge status={c.status} size="sm" /> },
     { key: 'budget', header: 'Budget', align: 'right', sortValue: (c) => c.financials.budget, render: (c) => <span className="font-semibold tabular-nums">{money(c.financials.budget)}</span> },
@@ -62,7 +63,7 @@ export default function Finance() {
     { key: 'accounts', header: 'Debit → Credit', render: (e) => <div className="flex flex-col gap-0.5 text-[12px]"><span className="flex items-center gap-1.5"><span className="w-5 text-[10px] font-semibold uppercase text-muted-foreground">Dr</span><AccountLabel account={e.debit_account} names={names} className={ACCOUNT_TONE(e.debit_account)} /></span><span className="flex items-center gap-1.5"><span className="w-5 text-[10px] font-semibold uppercase text-muted-foreground">Cr</span><AccountLabel account={e.credit_account} names={names} className={ACCOUNT_TONE(e.credit_account)} /></span></div> },
     { key: 'actor', header: 'Actor', sortValue: (e) => e.actor_type, render: (e) => <Tooltip content={<span className="font-mono">{e.actor_id}</span>}><span><ActorBadge type={e.actor_type} name={e.actor_type === 'AGENT' ? sessionNames[e.actor_id] ?? 'Agent' : e.actor_type === 'SYSTEM' ? 'System' : e.creator_handle && e.actor_id.startsWith('cr_') ? `@${e.creator_handle}` : 'Human'} size="sm" /></span></Tooltip> },
     { key: 'note', header: 'Note', render: (e) => <Tooltip content={e.note}><span className="line-clamp-2 min-w-[140px] max-w-[220px] text-[12px] text-muted-foreground">{e.note}</span></Tooltip> },
-    { key: 'links', header: '', render: (e) => <div className="flex items-center gap-1"><Tooltip content={e.campaign_title ?? 'Campaign'}><Link to={`/campaigns/${e.campaign_id}`} className="rounded-md p-1 text-muted-foreground hover:bg-accent hover:text-foreground" onClick={(ev) => ev.stopPropagation()}><Megaphone className="h-3.5 w-3.5" /></Link></Tooltip>{e.collaboration_id && <Tooltip content={e.creator_name ? `Collaboration with ${e.creator_name}` : 'Collaboration'}><Link to={`/collaborations/${e.collaboration_id}`} className="rounded-md p-1 text-muted-foreground hover:bg-accent hover:text-foreground" onClick={(ev) => ev.stopPropagation()}><Handshake className="h-3.5 w-3.5" /></Link></Tooltip>}</div> },
+    { key: 'links', header: <span className="relative inline-block"><span className="sr-only">Links</span></span>, render: (e) => <div className="flex items-center gap-1"><Tooltip content={e.campaign_title ?? 'Campaign'}><Link to={`/campaigns/${e.campaign_id}`} aria-label={`Open campaign ${e.campaign_title ?? e.campaign_id}`} className="rounded-md p-1 text-muted-foreground hover:bg-accent hover:text-foreground" onClick={(ev) => ev.stopPropagation()}><Megaphone className="h-3.5 w-3.5" /></Link></Tooltip>{e.collaboration_id && <Tooltip content={e.creator_name ? `Collaboration with ${e.creator_name}` : 'Collaboration'}><Link to={`/collaborations/${e.collaboration_id}`} aria-label={e.creator_name ? `Open collaboration with ${e.creator_name}` : 'Open collaboration'} className="rounded-md p-1 text-muted-foreground hover:bg-accent hover:text-foreground" onClick={(ev) => ev.stopPropagation()}><Handshake className="h-3.5 w-3.5" /></Link></Tooltip>}</div> },
   ];
 
   const campaignOptions = (campaigns.data ?? []).map((c) => ({ value: c.id, label: c.title }));
@@ -72,7 +73,9 @@ export default function Finance() {
     <div className="page">
       <PageHeader title="Finance" description="Where every dollar sits: campaign budgets, escrow locked against offers, and payouts released to creators — all from one double-entry ledger." />
 
-      {campaigns.isLoading ? <SkeletonCards /> : (
+      {campaigns.isLoading ? <SkeletonCards /> : campaigns.isError ? (
+        <EmptyState icon={AlertTriangle} title="Couldn't load finance data" description={campaigns.error instanceof Error ? campaigns.error.message : 'Try again in a moment.'} action={<Button size="sm" variant="secondary" onClick={() => campaigns.refetch()}>Retry</Button>} />
+      ) : (
         <div className="grid grid-cols-2 gap-4 xl:grid-cols-4">
           <Stat label="Managed budget" value={money(totals.budget)} icon={Wallet} tone="primary" hint={`${campaigns.data?.length ?? 0} campaign${(campaigns.data?.length ?? 0) === 1 ? '' : 's'}`} />
           <Stat label="In escrow" value={money(totals.escrow)} icon={Lock} tone="warning" hint="Locked for open offers & contracts" />
@@ -84,7 +87,7 @@ export default function Finance() {
       <div className="mt-6 space-y-6">
         <section className="min-w-0">
           <div className="mb-3 flex items-end justify-between gap-4"><div><h2 className="text-base font-semibold">Budget by campaign</h2><p className="text-[13px] text-muted-foreground">Budget, escrow and spend per campaign</p></div><Link to="/campaigns" className="inline-flex items-center gap-1 text-[12.5px] font-medium text-primary hover:underline">Campaigns <ArrowRight className="h-3.5 w-3.5" /></Link></div>
-          {campaigns.isLoading ? <div className="card p-5"><SkeletonRows rows={3} /></div> : <DataTable rows={campaigns.data ?? []} columns={campaignColumns} rowKey={(c) => c.id} className="[&_td]:px-3 [&_th]:px-3" empty={<EmptyState compact icon={Megaphone} title="No campaigns" description="Create a campaign to allocate budget." />} />}
+          {campaigns.isLoading ? <div className="card p-5"><SkeletonRows rows={3} /></div> : campaigns.isError ? null : <DataTable rows={campaigns.data ?? []} columns={campaignColumns} rowKey={(c) => c.id} className="[&_td]:px-3 [&_th]:px-3" empty={<EmptyState compact icon={Megaphone} title="No campaigns" description="Create a campaign to allocate budget." />} />}
         </section>
 
         <section className="min-w-0">
@@ -95,7 +98,9 @@ export default function Finance() {
               <Select size="sm" value={campaignId} onValueChange={setCampaignId} options={campaignOptions} allowEmpty="All campaigns" placeholder="All campaigns" className="w-auto min-w-[160px]" />
             </div>
           </div>
-          {ledger.isLoading ? <div className="card p-5"><SkeletonRows rows={5} /></div> : <DataTable rows={ledger.data ?? []} columns={ledgerColumns} rowKey={(e) => e.id} dense className="[&_td]:px-3 [&_th]:px-3" empty={<EmptyState compact icon={Receipt} title="No ledger entries" description="Nothing matches these filters." />} />}
+          {ledger.isLoading ? <div className="card p-5"><SkeletonRows rows={5} /></div> : ledger.isError ? (
+            <EmptyState icon={AlertTriangle} title="Couldn't load the ledger" description={ledger.error instanceof Error ? ledger.error.message : 'Try again in a moment.'} action={<Button size="sm" variant="secondary" onClick={() => ledger.refetch()}>Retry</Button>} />
+          ) : <DataTable rows={ledger.data ?? []} columns={ledgerColumns} rowKey={(e) => e.id} dense className="[&_td]:px-3 [&_th]:px-3" empty={<EmptyState compact icon={Receipt} title="No ledger entries" description="Nothing matches these filters." />} />}
           {ledger.data && ledger.data.length > 0 && <p className="mt-2 text-right text-[11.5px] text-muted-foreground">{ledger.data.length} entr{ledger.data.length === 1 ? 'y' : 'ies'} · newest first</p>}
         </section>
         <div className="grid gap-6 lg:grid-cols-3">
@@ -107,14 +112,14 @@ export default function Finance() {
                   <div className="rounded-xl bg-surface-muted/70 px-3 py-2"><div className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Total debits</div><div className="text-[15px] font-semibold tabular-nums">{money(tb.debits)}</div></div>
                   <div className="rounded-xl bg-surface-muted/70 px-3 py-2"><div className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Total credits</div><div className="text-[15px] font-semibold tabular-nums">{money(tb.credits)}</div></div>
                 </div>
-                <ul className="mt-4 max-h-[300px] divide-y divide-border/70 overflow-y-auto">
+                <div tabIndex={0} role="region" aria-label="Account balances" className="mt-4 max-h-[300px] overflow-y-auto rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"><ul className="divide-y divide-border/70">
                   {tb.accounts.map((a) => { const p = prettyAccount(a.account, names); return (
                     <li key={a.account} className="flex items-center justify-between gap-3 py-2 text-[12.5px]">
                       <Tooltip content={<span className="font-mono">{a.account}</span>}><span className="min-w-0 cursor-default"><span className={cn('block truncate font-medium', ACCOUNT_TONE(a.account))}>{p.label}</span>{p.owner && <span className="block truncate text-[11px] text-muted-foreground">{p.owner}</span>}</span></Tooltip>
                       <span className={cn('shrink-0 font-mono tabular-nums', a.balance > 0 ? 'text-success' : a.balance < 0 ? 'text-danger' : 'text-muted-foreground')}>{a.balance < 0 ? '−' : ''}{money(Math.abs(a.balance))}</span>
                     </li>
                   ); })}
-                </ul>
+                </ul></div>
               </>
             )}
           </Card>

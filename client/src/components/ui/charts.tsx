@@ -41,11 +41,11 @@ export function ChartFrame({ title, description, children, height = 260, action,
       {(title || action) && (
         <div className="mb-4 flex items-start justify-between gap-4">
           <div>
-            {title && <h3 className="text-[15px] font-semibold">{title}</h3>}
+            {title && <h2 className="text-[15px] font-semibold">{title}</h2>}
             {description && <p className="mt-0.5 text-[13px] text-muted-foreground">{description}</p>}
           </div>
           <div className="flex items-center gap-3">
-            {legend && <div className="hidden items-center gap-3 sm:flex">{legend.map((l) => <span key={l.label} className="flex items-center gap-1.5 text-xs text-muted-foreground"><span className="h-2 w-2 rounded-sm" style={{ background: l.color }} />{l.label}</span>)}</div>}
+            {legend && <div className="hidden items-center gap-3 sm:flex" aria-label="Legend">{legend.map((l) => <span key={l.label} className="flex items-center gap-1.5 text-xs text-muted-foreground"><span aria-hidden className="h-2 w-2 rounded-sm" style={{ background: l.color }} />{l.label}</span>)}</div>}
             {action}
           </div>
         </div>
@@ -60,7 +60,7 @@ export function ChartFrame({ title, description, children, height = 260, action,
 export function Sparkline({ data, dataKey = 'v', color = CHART.primary, height = 36, area = true }: { data: Record<string, any>[]; dataKey?: string; color?: string; height?: number; area?: boolean }) {
   const id = React.useId();
   return (
-    <div style={{ height }} className="w-full">
+    <div style={{ height }} className="w-full" aria-hidden>
       <ResponsiveContainer width="100%" height="100%">
         {area ? (
           <AreaChart data={data} margin={{ top: 2, right: 0, bottom: 0, left: 0 }}>
@@ -84,7 +84,7 @@ export function BarList({ items, format = (v) => num(v), color = CHART.primary, 
       {items.map((it, i) => (
         <div key={i}>
           <div className="mb-1 flex items-center justify-between gap-3 text-[13px]"><span className="truncate text-foreground/90">{it.label}</span><span className="shrink-0 font-medium tabular-nums">{format(it.value)}{it.hint && <span className="ml-1.5 text-xs font-normal text-muted-foreground">{it.hint}</span>}</span></div>
-          <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted"><div className="h-full rounded-full transition-all duration-500" style={{ width: `${(it.value / top) * 100}%`, background: it.color ?? color }} /></div>
+          <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted" aria-hidden><div className="h-full rounded-full transition-all duration-500" style={{ width: `${(it.value / top) * 100}%`, background: it.color ?? color }} /></div>
         </div>
       ))}
     </div>
@@ -97,8 +97,8 @@ export function Donut({ segments, size = 120, thickness = 14, center, className 
   const c = 2 * Math.PI * r;
   let offset = 0;
   return (
-    <div className={cn('relative inline-flex items-center justify-center', className)} style={{ width: size, height: size }}>
-      <svg width={size} height={size} className="-rotate-90">
+    <div className={cn('relative inline-flex items-center justify-center', className)} style={{ width: size, height: size }} role="img" aria-label={segments.map((s) => `${s.label}: ${Math.round((s.value / total) * 100)}%`).join(', ')}>
+      <svg width={size} height={size} className="-rotate-90" aria-hidden>
         <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="hsl(var(--muted))" strokeWidth={thickness} />
         {segments.map((s, i) => {
           const len = (s.value / total) * c;

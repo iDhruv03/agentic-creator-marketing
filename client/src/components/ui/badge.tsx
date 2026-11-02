@@ -24,7 +24,7 @@ export interface BadgeProps extends React.HTMLAttributes<HTMLSpanElement>, Varia
 export function Badge({ className, tone, size, dot, children, ...props }: BadgeProps) {
   return (
     <span className={cn(badgeVariants({ tone, size }), className)} {...props}>
-      {dot && <span className="h-1.5 w-1.5 rounded-full bg-current opacity-80" />}
+      {dot && <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-current opacity-80" />}
       {children}
     </span>
   );

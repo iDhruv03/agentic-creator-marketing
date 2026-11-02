@@ -161,6 +161,8 @@ function touch(id: string, status?: CollaborationStatus): void {
 // ---------------------------------------------------------------------------
 export interface OfferInput {
   id?: string;
+  /** Override who initiated the offer (used when a human approves an agent-held offer). */
+  initiated_by?: 'HUMAN' | 'AGENT';
   campaign_id: string;
   creator_id: string;
   proposed_rate: number;
@@ -188,7 +190,7 @@ export function sendOffer(input: OfferInput, actor: { type: ActorType; id: strin
     execute(
       `INSERT INTO collaborations (id, campaign_id, creator_id, proposed_rate, agreed_rate, status, initiated_by, agent_session_id, terms, usage_rights, exclusivity_days, deadline)
        VALUES (?, ?, ?, ?, NULL, 'OFFERED', ?, ?, ?, ?, ?, ?)`,
-      [id, campaign.id, creator.id, input.proposed_rate, actor.type === 'AGENT' ? 'AGENT' : 'HUMAN', actor.session_id ?? null, terms, input.usage_rights ?? 'Organic social usage, 90 days', input.exclusivity_days ?? 0, input.deadline ?? null],
+      [id, campaign.id, creator.id, input.proposed_rate, input.initiated_by ?? (actor.type === 'AGENT' ? 'AGENT' : 'HUMAN'), actor.session_id ?? null, terms, input.usage_rights ?? 'Organic social usage, 90 days', input.exclusivity_days ?? 0, input.deadline ?? null],
     );
     for (const raw of input.deliverables) {
       const type = normaliseDeliverableType(raw);

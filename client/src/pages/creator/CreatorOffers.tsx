@@ -8,6 +8,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { SkeletonRows, EmptyState } from '@/components/ui/feedback';
 import { Button } from '@/components/ui/button';
 import { OfferCard } from '@/components/creator/OfferCard';
+import { QueryError } from '@/components/collaborations/QueryError';
 import { isInbox, isActive } from '@/components/creator/utils';
 
 type TabKey = 'inbox' | 'active' | 'completed' | 'declined';
@@ -38,7 +39,7 @@ export default function CreatorOffers() {
           const rows = all.filter(t.match);
           return (
             <TabsContent key={t.key} value={t.key} className="focus:outline-none">
-              {collabs.isLoading ? <SkeletonRows rows={3} /> : rows.length === 0 ? (
+              {collabs.isLoading ? <SkeletonRows rows={3} /> : collabs.isError ? <QueryError what="your offers" error={collabs.error} refetch={collabs.refetch} /> : rows.length === 0 ? (
                 <EmptyState icon={t.icon} title={t.empty.title} description={t.empty.description} action={t.key === 'inbox' ? <Button size="sm" variant="secondary" onClick={() => navigate('/creator/profile')}>Keep your media kit current</Button> : undefined} />
               ) : (
                 <div className="grid gap-4 lg:grid-cols-2">{rows.map((c) => <OfferCard key={c.id} collab={c} />)}</div>

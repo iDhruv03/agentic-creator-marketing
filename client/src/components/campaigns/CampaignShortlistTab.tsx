@@ -11,7 +11,7 @@ import { Avatar } from '@/components/ui/avatar';
 import { Score, EmptyState, Progress } from '@/components/ui/feedback';
 import { ConfirmDialog } from '@/components/ui/overlay';
 import { SegmentedControl } from '@/components/ui/field';
-import { ActorBadge, PlatformIcons } from '@/components/ui/status';
+import { ActorBadge, PlatformIcons, CollabStatusBadge } from '@/components/ui/status';
 import { OfferDialog } from '@/components/creators/OfferDialog';
 
 const BREAKDOWN: { key: keyof NonNullable<Creator['match_breakdown']>; label: string; weight: number }[] = [
@@ -48,7 +48,7 @@ function ShortlistCard({ entry, campaign, onOffer }: { entry: ShortlistEntry; ca
   const closed = ['COMPLETED', 'ARCHIVED'].includes(campaign.status);
 
   return (
-    <div className={cn('card flex flex-col p-5', entry.status === 'REJECTED' && 'opacity-70')}>
+    <div className={cn('card flex flex-col p-5', entry.status === 'REJECTED' && 'bg-surface-muted')}>
       <div className="flex items-start gap-3">
         <Link to={`/creators/${c.id}`}><Avatar name={c.name} src={c.avatar_url} size="lg" /></Link>
         <div className="min-w-0 flex-1">
@@ -64,7 +64,7 @@ function ShortlistCard({ entry, campaign, onOffer }: { entry: ShortlistEntry; ca
             <span className="inline-flex items-center gap-0.5 tabular-nums"><Star className="h-3 w-3 fill-current text-warning" />{c.rating}</span>
           </div>
         </div>
-        <div className="flex flex-col items-center"><Score value={entry.match_score} size="md" label="Match score" /><span className="mt-0.5 text-[10px] text-muted-foreground">match</span></div>
+        <Score value={entry.match_score} size="md" label="Match score" />
       </div>
 
       {breakdown && <div className="mt-4"><MatchBreakdownBars breakdown={breakdown} /></div>}
@@ -85,12 +85,12 @@ function ShortlistCard({ entry, campaign, onOffer }: { entry: ShortlistEntry; ca
         )}
         {entry.status === 'REJECTED' && <Button size="sm" variant="secondary" leftIcon={<Check className="h-3.5 w-3.5" />} loading={review.isPending} onClick={() => review.mutate([campaign.id, entry.id, 'APPROVED'])}>Approve instead</Button>}
         {existing ? (
-          <Badge tone="primary">Offer {existing.status.toLowerCase().replace('_', ' ')}</Badge>
+          <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">Offer <CollabStatusBadge status={existing.status} size="sm" /></span>
         ) : (
           <Button size="sm" variant={entry.status === 'APPROVED' ? 'primary' : 'secondary'} leftIcon={<Send className="h-3.5 w-3.5" />} disabled={closed} onClick={() => onOffer(c)}>Send offer</Button>
         )}
         {existing && <Link to={`/collaborations/${existing.id}`} className="text-xs font-medium text-primary hover:underline">View collaboration</Link>}
-        <Button size="icon-sm" variant="ghost" className="ml-auto text-muted-foreground hover:text-danger" onClick={() => setConfirmRemove(true)} title="Remove from shortlist"><Trash2 className="h-4 w-4" /></Button>
+        <Button size="icon-sm" variant="ghost" className="ml-auto text-muted-foreground hover:text-danger" onClick={() => setConfirmRemove(true)} title="Remove from shortlist" aria-label="Remove from shortlist"><Trash2 className="h-4 w-4" /></Button>
       </div>
 
       <ConfirmDialog open={confirmRemove} onOpenChange={setConfirmRemove} tone="danger" confirmLabel="Remove" loading={remove.isPending} title={`Remove @${c.handle} from the shortlist?`} description="This only removes the shortlist entry. Existing offers and collaborations are untouched." onConfirm={() => remove.mutate([campaign.id, entry.id])} />

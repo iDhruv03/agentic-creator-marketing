@@ -34,6 +34,7 @@ Anything an agent does is immediately visible, reviewable and reversible from th
 | **Agent runtime** | Claude (`claude-opus-5-5`, adaptive thinking, streaming tool use) plans and executes runs through the governed tools; a deterministic planner runs the same arc when no API key is configured. Runs stream live to the dashboard. |
 | **Money** | Double-entry ledger (brand budget → campaign available → escrow → creator wallet), escrow holds on offers, refunds on decline, milestone payouts, trial balance. |
 | **Audit** | Append-only, SHA-256 hash-chained log of every agent tool call *and* human dashboard action; UPDATE/DELETE blocked at the database; one-click chain verification. |
+| **Global + India marketplace** | 24 seeded creators across the US, UK, EU and India (Hindi/English, India-majority audiences, INR-realistic USD rates), with audience-country filtering and India-specific campaign and evaluation scenario. |
 | **Marketplace intelligence** | Predictive creator↔campaign match score (niche, audience, performance, budget fit, reliability) with reasons; rate benchmarking by tier and niche; sponsored-content compliance checker (#ad disclosure, platform, required tags/handles/codes). |
 | **Workflows** | Campaign wizard & lifecycle, shortlists with human approval, offers → counter-offers → acceptance, deliverable submission with compliance + metrics, review, payouts, notifications, realtime updates (SSE). |
 | **Creator portal** | Offer inbox with negotiation, brief & must-include checklist, content submission with live compliance preview, wallet & payouts, media-kit editor with rate benchmarks. |
@@ -58,9 +59,10 @@ Open **http://localhost:5173** and pick a demo persona (password `demo1234`):
 | Brand · TechPulse Audio | `maya@techpulse.audio` | live agent-run campaign with pending checkpoints |
 | Brand · Glow Botanicals | `james@glowbotanicals.com` | mid-flight campaign with content review |
 | Brand · Apex Athletics | `lena@apexathletics.co` | agency-managed campaign |
+| Brand · Zestra Naturals (India) | `riya@zestranaturals.in` | India-market launch with Indian creators |
 | Agency · OmniMedia | `sam@omnimedia.co` | three clients in one workspace |
 | Agency · Elevate | `ava@elevate.io` | |
-| Creators | `marcus@creator.cmi`, `elena@creator.cmi`, `david@creator.cmi` | offers, content, wallet |
+| Creators | `marcus@creator.cmi`, `elena@creator.cmi`, `ananya@creator.cmi`, `david@creator.cmi` | offers, content, wallet |
 
 Optional: copy `server/.env.example` to `server/.env` and set `ANTHROPIC_API_KEY` to let Claude drive agent runs. Without it, runs use the simulated planner — governance, ledger and audit behave identically.
 

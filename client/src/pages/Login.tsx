@@ -49,11 +49,11 @@ export default function Login() {
     <div className="relative min-h-screen overflow-hidden bg-background">
       <div className="pointer-events-none absolute inset-0 surface-grid opacity-[0.35] [mask-image:radial-gradient(ellipse_at_top,black,transparent_70%)]" />
       <div className="pointer-events-none absolute -top-40 left-1/2 h-[520px] w-[820px] -translate-x-1/2 rounded-full bg-primary/15 blur-3xl" />
-      <div className="relative mx-auto grid min-h-screen w-full max-w-6xl gap-10 px-6 py-10 lg:grid-cols-[1.05fr_1fr] lg:items-center lg:py-16">
+      <main id="main" className="relative mx-auto grid min-h-screen w-full max-w-6xl gap-10 px-6 py-10 lg:grid-cols-[1.05fr_1fr] lg:items-center lg:py-16">
         {/* Left: story */}
-        <div className="animate-slide-up">
+        <section aria-labelledby="login-story-h1" className="animate-slide-up">
           <div className="flex items-center gap-3"><LogoMark size={40} /><div><div className="font-display text-lg font-semibold">CMI</div><div className="text-xs uppercase tracking-[0.14em] text-muted-foreground">Creator Marketing Infrastructure</div></div></div>
-          <h1 className="mt-8 max-w-xl font-display text-4xl font-semibold leading-[1.08] tracking-tight sm:text-[44px]">Creator marketing that <span className="text-gradient">humans and AI agents</span> run together.</h1>
+          <h1 id="login-story-h1" className="mt-8 max-w-xl font-display text-4xl font-semibold leading-[1.08] tracking-tight sm:text-[44px]">Creator marketing that <span className="text-gradient">humans and AI agents</span> run together.</h1>
           <p className="mt-4 max-w-lg text-[15px] leading-relaxed text-muted-foreground">One shared core: a dashboard for brands, agencies and creators, and a governed MCP server for autonomous marketing agents. Budget ceilings, human checkpoints and an immutable audit trail keep every dollar accountable.</p>
           <div className="mt-8 grid gap-3 sm:grid-cols-3">
             {[{ icon: Bot, title: 'Agent-operable', body: '15 governed MCP tools over stdio and HTTP.' }, { icon: ShieldCheck, title: 'Governed by design', body: 'Budget scoping, rate ceilings, approval checkpoints.' }, { icon: ScrollText, title: 'Fully auditable', body: 'Hash-chained, append-only audit log.' }].map((f) => (
@@ -64,11 +64,11 @@ export default function Login() {
               </div>
             ))}
           </div>
-        </div>
+        </section>
 
         {/* Right: personas + form */}
-        <div className="card p-6 shadow-raised animate-slide-up sm:p-8" style={{ animationDelay: '60ms' }}>
-          <h2 className="text-lg font-semibold">Choose a demo persona</h2>
+        <section aria-labelledby="persona-h2" className="card p-6 shadow-raised animate-slide-up sm:p-8" style={{ animationDelay: '60ms' }}>
+          <h2 id="persona-h2" className="text-lg font-semibold">Choose a demo persona</h2>
           <p className="mt-1 text-[13px] text-muted-foreground">Every persona uses the password <code className="rounded bg-muted px-1 py-0.5 font-mono text-xs">demo1234</code>. Switch any time from the user menu.</p>
           <div className="mt-5 space-y-4">
             {(['BRAND', 'AGENCY', 'CREATOR'] as Role[]).map((role) => {
@@ -76,7 +76,7 @@ export default function Login() {
               const list = grouped[role] ?? [];
               return (
                 <div key={role}>
-                  <div className="mb-2 flex items-center gap-2 text-[12px] font-semibold uppercase tracking-wider text-muted-foreground"><span className={cn('flex h-5 w-5 items-center justify-center rounded-md', meta.tone)}><meta.icon className="h-3 w-3" /></span>{meta.label}<span className="font-normal normal-case tracking-normal text-muted-foreground/80">· {meta.blurb}</span></div>
+                  <div className="mb-2 flex items-center gap-2 text-[12px] font-semibold uppercase tracking-wider text-muted-foreground"><span className={cn('flex h-5 w-5 items-center justify-center rounded-md', meta.tone)}><meta.icon className="h-3 w-3" /></span>{meta.label}<span className="font-normal normal-case tracking-normal text-muted-foreground">· {meta.blurb}</span></div>
                   <div className="grid gap-2 sm:grid-cols-2">
                     {personas.isLoading && Array.from({ length: 3 }).map((_, i) => <div key={i} className="skeleton h-[62px]" />)}
                     {list.map((p) => (
@@ -103,8 +103,8 @@ export default function Login() {
             {error && <p className="rounded-lg bg-danger-soft px-3 py-2 text-xs font-medium text-danger">{error}</p>}
             <Button type="submit" className="w-full" loading={busy === 'form'} disabled={!email}>Sign in</Button>
           </form>
-        </div>
-      </div>
+        </section>
+      </main>
     </div>
   );
 }

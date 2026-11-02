@@ -7,7 +7,7 @@ export function CopyButton({ value, className, label }: { value: string; classNa
   const [copied, setCopied] = React.useState(false);
   return (
     <Tooltip content={copied ? 'Copied' : label ?? 'Copy'}>
-      <button type="button" onClick={() => { navigator.clipboard?.writeText(value); setCopied(true); setTimeout(() => setCopied(false), 1500); }} className={cn('inline-flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground transition hover:bg-accent hover:text-foreground', className)}>
+      <button type="button" aria-label={copied ? 'Copied' : label ?? 'Copy to clipboard'} onClick={() => { navigator.clipboard?.writeText(value); setCopied(true); setTimeout(() => setCopied(false), 1500); }} className={cn('inline-flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground transition hover:bg-accent hover:text-foreground', className)}>
         {copied ? <Check className="h-3.5 w-3.5 text-success" /> : <Copy className="h-3.5 w-3.5" />}
       </button>
     </Tooltip>
@@ -32,21 +32,21 @@ export function CodeBlock({ code, language, className, title }: { code: string; 
           <CopyButton value={code} className="text-slate-400 hover:bg-white/10 hover:text-white" />
         </div>
       )}
-      <pre className="max-h-[420px] overflow-auto p-3.5 font-mono leading-relaxed"><code>{code}</code></pre>
+      <pre tabIndex={0} role="region" aria-label={title ?? language ?? 'Code'} className="max-h-[420px] overflow-auto p-3.5 font-mono leading-relaxed focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"><code>{code}</code></pre>
     </div>
   );
 }
 
-export function JsonView({ value, className, collapsed = false, maxHeight = 320 }: { value: unknown; className?: string; collapsed?: boolean; maxHeight?: number }) {
+export function JsonView({ value, className, collapsed = false, maxHeight = 320, label = 'JSON payload' }: { value: unknown; className?: string; collapsed?: boolean; maxHeight?: number; label?: string }) {
   const [open, setOpen] = React.useState(!collapsed);
   const text = React.useMemo(() => { try { return JSON.stringify(value, null, 2); } catch { return String(value); } }, [value]);
   return (
     <div className={cn('overflow-hidden rounded-lg border border-border bg-surface-muted/60', className)}>
       <div className="flex items-center justify-between pr-1.5 text-[11px] font-medium text-muted-foreground">
-        <button type="button" onClick={() => setOpen((o) => !o)} className="flex flex-1 items-center gap-1 px-2.5 py-1.5 text-left hover:bg-accent/50">{open ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}JSON</button>
+        <button type="button" aria-expanded={open} onClick={() => setOpen((o) => !o)} className="flex flex-1 items-center gap-1 px-2.5 py-1.5 text-left hover:bg-accent/50">{open ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}JSON</button>
         <CopyButton value={text} className="h-5 w-5" />
       </div>
-      {open && <pre className="overflow-auto px-3 pb-3 font-mono text-[11.5px] leading-relaxed text-foreground/85" style={{ maxHeight }}>{text}</pre>}
+      {open && <pre tabIndex={0} role="region" aria-label={label} className="overflow-auto px-3 pb-3 font-mono text-[11.5px] leading-relaxed text-foreground/85 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring" style={{ maxHeight }}>{text}</pre>}
     </div>
   );
 }
@@ -66,7 +66,7 @@ export function KeyValue({ items, className, columns = 1 }: { items: { label: Re
 
 export interface Column<T> { key: string; header: React.ReactNode; render: (row: T) => React.ReactNode; className?: string; align?: 'left' | 'right' | 'center'; width?: string; sortValue?: (row: T) => number | string }
 
-export function DataTable<T>({ rows, columns, rowKey, onRowClick, empty, className, dense, selectedKey }: { rows: T[]; columns: Column<T>[]; rowKey: (row: T) => string; onRowClick?: (row: T) => void; empty?: React.ReactNode; className?: string; dense?: boolean; selectedKey?: string | null }) {
+export function DataTable<T>({ rows, columns, rowKey, onRowClick, empty, className, dense, selectedKey, label }: { rows: T[]; columns: Column<T>[]; rowKey: (row: T) => string; onRowClick?: (row: T) => void; empty?: React.ReactNode; className?: string; dense?: boolean; selectedKey?: string | null; label?: string }) {
   const [sort, setSort] = React.useState<{ key: string; dir: 1 | -1 } | null>(null);
   const sorted = React.useMemo(() => {
     if (!sort) return rows;
@@ -76,15 +76,24 @@ export function DataTable<T>({ rows, columns, rowKey, onRowClick, empty, classNa
   }, [rows, sort, columns]);
   return (
     <div className={cn('card overflow-hidden p-0', className)}>
-      <div className="overflow-x-auto">
+      <div className="overflow-x-auto" tabIndex={0} role="region" aria-label={label ?? `Table: ${columns.map((c) => (typeof c.header === 'string' ? c.header : '')).filter(Boolean).join(', ') || 'data'}`}>
         <table className="table-base">
           <thead>
             <tr>
-              {columns.map((c) => (
-                <th key={c.key} style={{ width: c.width }} className={cn(c.align === 'right' && 'text-right', c.align === 'center' && 'text-center', c.sortValue && 'cursor-pointer select-none hover:text-foreground')} onClick={c.sortValue ? () => setSort((s) => (s?.key === c.key ? { key: c.key, dir: s.dir === 1 ? -1 : 1 } : { key: c.key, dir: 1 })) : undefined}>
-                  <span className="inline-flex items-center gap-1">{c.header}{sort?.key === c.key && <ChevronDown className={cn('h-3 w-3 transition', sort.dir === -1 && 'rotate-180')} />}</span>
-                </th>
-              ))}
+              {columns.map((c) => {
+                const isEmpty = c.header === '' || c.header === null || c.header === undefined;
+                const sorted = sort?.key === c.key;
+                const toggle = () => setSort((s) => (s?.key === c.key ? { key: c.key, dir: s.dir === 1 ? -1 : 1 } : { key: c.key, dir: 1 }));
+                return (
+                  <th key={c.key} scope="col" style={{ width: c.width }} aria-sort={c.sortValue ? (sorted ? (sort!.dir === 1 ? 'ascending' : 'descending') : 'none') : undefined} className={cn(c.align === 'right' && 'text-right', c.align === 'center' && 'text-center')}>
+                    {isEmpty ? <span className="relative inline-block"><span className="sr-only">Actions</span></span> : c.sortValue ? (
+                      <button type="button" onClick={toggle}>{c.header}<ChevronDown aria-hidden className={cn('h-3 w-3 transition', !sorted && 'opacity-0', sorted && sort!.dir === -1 && 'rotate-180')} /></button>
+                    ) : (
+                      <span className="inline-flex items-center gap-1">{c.header}</span>
+                    )}
+                  </th>
+                );
+              })}
             </tr>
           </thead>
           <tbody>
@@ -92,7 +101,7 @@ export function DataTable<T>({ rows, columns, rowKey, onRowClick, empty, classNa
             {sorted.map((row) => {
               const k = rowKey(row);
               return (
-                <tr key={k} onClick={onRowClick ? () => onRowClick(row) : undefined} className={cn('transition', onRowClick && 'cursor-pointer hover:bg-accent/50', selectedKey === k && 'bg-primary-soft/40')}>
+                <tr key={k} onClick={onRowClick ? () => onRowClick(row) : undefined} tabIndex={onRowClick ? 0 : undefined} onKeyDown={onRowClick ? (e) => { if (e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); onRowClick(row); } } : undefined} aria-selected={onRowClick ? selectedKey === k : undefined} className={cn('transition', onRowClick && 'cursor-pointer hover:bg-accent/50 focus:outline-none focus-visible:bg-accent/60 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring', selectedKey === k && 'bg-primary-soft/40')}>
                   {columns.map((c) => <td key={c.key} className={cn(dense && 'py-2', c.align === 'right' && 'text-right', c.align === 'center' && 'text-center', c.className)}>{c.render(row)}</td>)}
                 </tr>
               );
@@ -129,7 +138,7 @@ export function Collapsible({ title, children, defaultOpen = false, className, r
   const [open, setOpen] = React.useState(defaultOpen);
   return (
     <div className={cn('rounded-xl border border-border', className)}>
-      <button type="button" onClick={() => setOpen((o) => !o)} className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left text-sm font-medium hover:bg-accent/40">
+      <button type="button" aria-expanded={open} onClick={() => setOpen((o) => !o)} className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left text-sm font-medium hover:bg-accent/40">
         <span className="flex items-center gap-2"><ChevronRight className={cn('h-4 w-4 text-muted-foreground transition', open && 'rotate-90')} />{title}</span>
         {right}
       </button>

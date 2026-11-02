@@ -99,12 +99,12 @@ export function BasicsFields({ form, set, errors, brandOptions, lockedBrandName 
       </div>
       <div className="grid gap-4 sm:grid-cols-2">
         <div>
-          <Label>Start date</Label>
-          <Input type="date" value={form.start_date} onChange={(e) => set('start_date', e.target.value)} />
+          <Label htmlFor="campaign-start-date">Start date</Label>
+          <Input id="campaign-start-date" type="date" value={form.start_date} onChange={(e) => set('start_date', e.target.value)} />
         </div>
         <div>
-          <Label>End date</Label>
-          <Input type="date" value={form.end_date} error={Boolean(errors.end_date)} min={form.start_date || undefined} onChange={(e) => set('end_date', e.target.value)} />
+          <Label htmlFor="campaign-end-date">End date</Label>
+          <Input id="campaign-end-date" type="date" value={form.end_date} error={Boolean(errors.end_date)} min={form.start_date || undefined} onChange={(e) => set('end_date', e.target.value)} />
           <FieldError>{errors.end_date}</FieldError>
         </div>
       </div>

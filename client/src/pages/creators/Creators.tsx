@@ -62,8 +62,8 @@ export default function Creators() {
           ) : <div className="mt-0.5 text-xs text-muted-foreground">Generic fit scores. Pick a campaign to rank against its brief, platforms and rate band.</div>}
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="secondary" size="sm" className="lg:hidden" leftIcon={<SlidersHorizontal className="h-3.5 w-3.5" />} onClick={() => setDrawer(true)}>Filters{count ? ` (${count})` : ''}</Button>
-          <SegmentedControl size="sm" value={view} onChange={setView} options={[{ value: 'grid', label: <LayoutGrid className="h-4 w-4" /> }, { value: 'list', label: <List className="h-4 w-4" /> }]} />
+          <Button variant="secondary" size="md" className="lg:hidden" leftIcon={<SlidersHorizontal className="h-4 w-4" />} onClick={() => setDrawer(true)}>Filters{count ? ` (${count})` : ''}</Button>
+          <SegmentedControl size="md" label="View" value={view} onChange={setView} options={[{ value: 'grid', label: <LayoutGrid className="h-4 w-4" />, title: 'Card view' }, { value: 'list', label: <List className="h-4 w-4" />, title: 'Table view' }]} />
         </div>
       </div>
 

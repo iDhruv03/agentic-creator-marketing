@@ -33,6 +33,7 @@ export function startRun(input: StartRunInput): AgentRun {
   const campaignId = input.campaign_id ?? session.campaign_id ?? null;
   const goal = input.goal?.trim() || (campaignId ? 'Run this campaign end to end: discover and shortlist creators, refine the brief, and send offers within policy.' : 'Discover and shortlist the best creators for the brand.');
   const mode = resolveMode(input.mode);
+  if (mode === 'SIMULATED' && !campaignId) throw new CoreError('The simulated planner needs a campaign to work on. Pick a campaign or bind the session to one.', 400, 'CAMPAIGN_REQUIRED');
   const model = mode === 'LLM' ? (input.model || session.model || DEFAULT_MODEL) : null;
 
   const run = createRun({ session_id: session.id, campaign_id: campaignId, goal, mode, model });

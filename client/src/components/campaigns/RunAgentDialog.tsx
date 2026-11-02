@@ -4,8 +4,9 @@ import { Sparkles, Bot, Plus } from 'lucide-react';
 import type { Campaign, AgentSession } from '@/types';
 import { useSessions, useScopes, useAction } from '@/hooks/queries';
 import { api } from '@/lib/api';
-import { money, titleCase, cn } from '@/lib/utils';
+import { money, cn } from '@/lib/utils';
 import { Dialog } from '@/components/ui/overlay';
+import { SCOPE_META } from '@/components/agents/shared';
 import { Button } from '@/components/ui/button';
 import { Label, Select, Textarea, FieldError, Hint } from '@/components/ui/field';
 import { Callout, EmptyState } from '@/components/ui/feedback';
@@ -85,11 +86,11 @@ export function RunAgentDialog({ campaign, open, onOpenChange }: { campaign: Cam
         ) : (
           <div>
             <Label required hint={<Link to="/agents?new=1" className="text-primary hover:underline">New session</Link>}>Agent session</Label>
-            <Select value={sessionId} onValueChange={(v) => { setSessionId(v); setErrors((e) => ({ ...e, session: undefined })); }} placeholder={loading ? 'Loading sessions…' : 'Choose a session'} options={sessions.map((s) => ({ value: s.id, disabled: s.status !== 'ACTIVE', label: <span className="flex items-center gap-2">{s.name}<SessionStatusBadge status={s.status} size="sm" />{s.bound && <span className="text-[11px] text-muted-foreground">bound to this campaign</span>}</span>, description: `${titleCase(s.role_scope)} · ${money(s.spent_amount)} / ${money(s.budget_ceiling)} ceiling · rate cap ${money(s.rate_ceiling)}` }))} />
+            <Select value={sessionId} onValueChange={(v) => { setSessionId(v); setErrors((e) => ({ ...e, session: undefined })); }} placeholder={loading ? 'Loading sessions…' : 'Choose a session'} options={sessions.map((s) => ({ value: s.id, disabled: s.status !== 'ACTIVE', label: <span className="flex items-center gap-2">{s.name}<SessionStatusBadge status={s.status} size="sm" />{s.bound && <span className="text-[11px] text-muted-foreground">bound to this campaign</span>}</span>, description: `${SCOPE_META[s.role_scope].label} · ${money(s.spent_amount)} / ${money(s.budget_ceiling)} ceiling · rate cap ${money(s.rate_ceiling)}` }))} />
             <FieldError>{errors.session}</FieldError>
             {session && (
               <div className="mt-2 grid grid-cols-3 gap-2 rounded-xl border border-agent/25 bg-agent-soft/40 p-3 text-xs">
-                <div><div className="text-[10.5px] uppercase tracking-wider text-muted-foreground">Scope</div><div className="font-medium">{titleCase(session.role_scope)}</div></div>
+                <div><div className="text-[10.5px] uppercase tracking-wider text-muted-foreground">Scope</div><div className="font-medium">{SCOPE_META[session.role_scope].label}</div></div>
                 <div><div className="text-[10.5px] uppercase tracking-wider text-muted-foreground">Budget left</div><div className="font-medium tabular-nums">{money(Math.max(0, session.budget_ceiling - session.spent_amount))}</div></div>
                 <div><div className="text-[10.5px] uppercase tracking-wider text-muted-foreground">Rate ceiling</div><div className="font-medium tabular-nums">{money(session.rate_ceiling)}</div></div>
               </div>

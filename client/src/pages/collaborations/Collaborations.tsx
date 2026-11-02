@@ -12,6 +12,7 @@ import { SegmentedControl, Select, SearchInput } from '@/components/ui/field';
 import { DataTable, type Column } from '@/components/ui/data';
 import { CollabStatusBadge, ActorBadge } from '@/components/ui/status';
 import { CollabCard } from '@/components/collaborations/CollabCard';
+import { QueryError } from '@/components/collaborations/QueryError';
 import { BOARD_COLUMNS, OPEN_OFFER, IN_PRODUCTION, collabRate, deliverableProgress, deadlineInfo, matchesCreator } from '@/components/collaborations/collab-utils';
 
 type View = 'board' | 'list';
@@ -80,6 +81,8 @@ export default function Collaborations() {
       <div className="mt-4">
         {collabs.isLoading ? (
           <div className="flex gap-4 overflow-hidden">{Array.from({ length: 4 }).map((_, i) => <div key={i} className="w-[280px] shrink-0 space-y-3"><Skeleton className="h-6 w-2/3" /><Skeleton className="h-36 w-full rounded-2xl" /><Skeleton className="h-36 w-full rounded-2xl" /></div>)}</div>
+        ) : collabs.isError ? (
+          <QueryError what="collaborations" error={collabs.error} refetch={collabs.refetch} />
         ) : !hasAny ? (
           <EmptyState icon={Handshake} title="No collaborations yet" description="Send an offer to a creator from the marketplace, or let an agent source and negotiate on your behalf." action={<div className="flex gap-2"><Button size="sm" variant="secondary" leftIcon={<Users className="h-3.5 w-3.5" />} onClick={() => navigate('/creators')}>Browse creators</Button><Button size="sm" variant="agent" onClick={() => navigate('/agents?new=1')}>Launch an agent</Button></div>} />
         ) : filtered.length === 0 ? (
@@ -100,7 +103,7 @@ function Board({ rows }: { rows: Collaboration[] }) {
           return (
             <div key={col.key} className="flex w-[272px] shrink-0 flex-col rounded-2xl bg-surface-muted/60 p-2">
               <div className="flex items-center justify-between px-2 pb-2 pt-1">
-                <div className="flex items-center gap-2"><span className="text-[13px] font-semibold">{col.label}</span><span className="rounded-full bg-surface px-1.5 py-0.5 text-[10.5px] font-semibold tabular-nums text-muted-foreground shadow-sm">{items.length}</span></div>
+                <div className="flex items-center gap-2"><span className="text-[13px] font-semibold">{col.label}</span><span className="rounded-full bg-surface px-1.5 py-0.5 text-[10.5px] font-semibold tabular-nums text-muted-foreground">{items.length}</span></div>
                 <span className="text-[11.5px] font-medium tabular-nums text-muted-foreground">{money(total)}</span>
               </div>
               <div className="flex flex-col gap-2">

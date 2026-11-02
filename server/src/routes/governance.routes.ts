@@ -45,11 +45,7 @@ governanceRouter.get('/ledger', requireAuth, h((req, res) => {
   const filter: any = { campaign_id: qstr(req.query.campaign_id), collaboration_id: qstr(req.query.collaboration_id), entry_type: qstr(req.query.entry_type), limit: qnum(req.query.limit) };
   if (user.role === 'CREATOR') filter.creator_id = user.creator_id;
   else if (user.role === 'BRAND') filter.brand_id = user.brand_id;
-  else if (user.role === 'AGENCY') {
-    const scope = brandScope(user);
-    const rows = listLedger(filter).filter((r: any) => scope?.includes(r.brand_id));
-    res.json(rows); return;
-  }
+  else if (user.role === 'AGENCY') filter.brand_ids = brandScope(user) ?? [];
   res.json(listLedger(filter));
 }));
 
@@ -58,14 +54,18 @@ governanceRouter.get('/ledger/trial-balance', requireRole('BRAND', 'AGENCY'), h(
 // ---- Audit -----------------------------------------------------------------
 governanceRouter.get('/audit', requireAuth, h((req, res) => {
   const q = req.query;
-  const result = listAudit({ campaign_id: qstr(q.campaign_id), session_id: qstr(q.session_id), run_id: qstr(q.run_id), actor_type: qstr(q.actor_type), status: qstr(q.status), tool_name: qstr(q.tool_name), search: qstr(q.q), limit: qnum(q.limit) ?? 100, offset: qnum(q.offset) ?? 0 });
   const scope = brandScope(req.user!);
-  if (scope !== null && req.user!.role !== 'CREATOR') {
-    // Filter to campaigns in scope; entries without a campaign (session-level) are kept when the session belongs to the scope.
-    const campaignIds = new Set<string>(queryAll(`SELECT id FROM campaigns WHERE brand_id IN (${scope.map(() => '?').join(',') || "''"})`, scope).map((r: any) => r.id));
-    const sessionIds = new Set<string>(queryAll(`SELECT id FROM agent_sessions WHERE brand_id IN (${scope.map(() => '?').join(',') || "''"})`, scope).map((r: any) => r.id));
-    result.items = result.items.filter((i) => (i.campaign_id ? campaignIds.has(i.campaign_id) : i.session_id ? sessionIds.has(i.session_id) : true));
+  let visibility: { campaign_ids: string[]; session_ids: string[] } | undefined;
+  if (scope !== null) {
+    const ids = scope.length ? scope : ['__none__'];
+    const ph = ids.map(() => '?').join(',');
+    visibility = {
+      campaign_ids: queryAll<{ id: string }>(`SELECT id FROM campaigns WHERE brand_id IN (${ph})`, ids).map((r) => r.id),
+      session_ids: queryAll<{ id: string }>(`SELECT id FROM agent_sessions WHERE brand_id IN (${ph})`, ids).map((r) => r.id),
+    };
+    if (req.user!.role === 'CREATOR') visibility = { campaign_ids: queryAll<{ campaign_id: string }>(`SELECT DISTINCT campaign_id FROM collaborations WHERE creator_id = ?`, [req.user!.creator_id ?? '']).map((r) => r.campaign_id), session_ids: [] };
   }
+  const result = listAudit({ campaign_id: qstr(q.campaign_id), session_id: qstr(q.session_id), run_id: qstr(q.run_id), actor_type: qstr(q.actor_type), status: qstr(q.status), tool_name: qstr(q.tool_name), search: qstr(q.q), scope: visibility, limit: qnum(q.limit) ?? 100, offset: qnum(q.offset) ?? 0 });
   res.json(result);
 }));
 

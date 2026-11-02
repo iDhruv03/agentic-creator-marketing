@@ -34,13 +34,14 @@ export function LaunchRunDialog({ open, onOpenChange, defaultSessionId }: { open
     setGoal('');
     setMode('AUTO');
     setTouchedCampaign(false);
-    setCampaignId('');
   }, [open, defaultSessionId]);
 
-  // Default the campaign to the session's binding whenever the session changes.
+  // Default the campaign to the session's binding whenever the dialog opens or the session changes.
+  // (Re-seeding on `open` matters when the session was already selected before: the deps below would not change.)
   React.useEffect(() => {
+    if (!open) return;
     if (!touchedCampaign) setCampaignId(session?.campaign_id ?? '');
-  }, [session?.id, session?.campaign_id, touchedCampaign]);
+  }, [open, session?.id, session?.campaign_id, touchedCampaign]);
 
   // If no session was given, pick the first active one.
   React.useEffect(() => {
@@ -61,10 +62,13 @@ export function LaunchRunDialog({ open, onOpenChange, defaultSessionId }: { open
   };
 
   const offBinding = Boolean(session?.campaign_id && campaignId && campaignId !== session.campaign_id);
-  const modeOptions: { value: Mode; label: React.ReactNode; icon?: React.ReactNode }[] = [
+  // The deterministic planner always works a campaign; only a Claude-driven run can start without one.
+  const simulated = mode === 'SIMULATED' || (mode === 'AUTO' && !llmAvailable);
+  const missingCampaign = simulated && !campaignId;
+  const modeOptions: { value: Mode; label: React.ReactNode; icon?: React.ReactNode; disabled?: boolean }[] = [
     { value: 'AUTO', label: 'Auto', icon: <Wand2 className="h-3.5 w-3.5" /> },
     { value: 'SIMULATED', label: 'Simulated', icon: <Cpu className="h-3.5 w-3.5" /> },
-    { value: 'LLM', label: llmAvailable ? 'Claude' : <Tooltip content="Set ANTHROPIC_API_KEY on the server to run with Claude. Governance is identical in simulated mode."><span className="opacity-50">Claude</span></Tooltip>, icon: <Sparkles className="h-3.5 w-3.5" /> },
+    { value: 'LLM', label: llmAvailable ? 'Claude' : <Tooltip content="Set ANTHROPIC_API_KEY on the server to run with Claude. Governance is identical in simulated mode."><span>Claude</span></Tooltip>, icon: <Sparkles className="h-3.5 w-3.5" />, disabled: !llmAvailable },
   ];
 
   return (
@@ -76,7 +80,7 @@ export function LaunchRunDialog({ open, onOpenChange, defaultSessionId }: { open
       description="Give the agent a goal. It plans and calls governed MCP tools; anything outside policy is held or blocked."
       footer={<>
         <Button variant="ghost" onClick={() => onOpenChange(false)}>Cancel</Button>
-        <Button variant="agent" leftIcon={<Play className="h-4 w-4" />} loading={start.isPending} disabled={!sessionId || (session && session.status !== 'ACTIVE')} onClick={submit}>Launch run</Button>
+        <Button variant="agent" leftIcon={<Play className="h-4 w-4" />} loading={start.isPending} disabled={!sessionId || (session && session.status !== 'ACTIVE') || missingCampaign} onClick={submit}>Launch run</Button>
       </>}
     >
       <div className="space-y-5">
@@ -95,7 +99,9 @@ export function LaunchRunDialog({ open, onOpenChange, defaultSessionId }: { open
         <div>
           <Label>Campaign</Label>
           <Select value={campaignId} onValueChange={(v) => { setTouchedCampaign(true); setCampaignId(v); }} options={brandCampaigns.map((c) => ({ value: c.id, label: c.title, description: `${c.status.toLowerCase()} · ${money(c.financials.available)} available` }))} allowEmpty="No specific campaign" placeholder="No specific campaign" />
-          {offBinding ? <p className="mt-1.5 text-xs text-danger">This session is bound to another campaign; the campaign-binding guardrail will block every campaign call.</p> : <Hint>{session?.campaign_id ? 'Defaults to the campaign this session is bound to.' : 'Optional — without a campaign the agent can only discover and shortlist.'}</Hint>}
+          {offBinding ? <p className="mt-1.5 text-xs text-danger">This session is bound to another campaign; the campaign-binding guardrail will block every campaign call.</p>
+            : missingCampaign ? <p className="mt-1.5 text-xs text-danger">The simulated planner needs a campaign to work on — choose one.</p>
+            : <Hint>{session?.campaign_id ? 'Defaults to the campaign this session is bound to.' : simulated ? 'The planner inspects this campaign first and works inside its brief and budget.' : 'Optional — without a campaign the agent can only discover and shortlist.'}</Hint>}
         </div>
 
         <div>

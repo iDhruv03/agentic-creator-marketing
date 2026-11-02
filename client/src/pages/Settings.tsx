@@ -5,7 +5,10 @@ import { api } from '@/lib/api';
 import { useAuth } from '@/store/auth';
 import { useUi } from '@/store/ui';
 import { useScopes } from '@/hooks/queries';
-import { cn, money, fmtDate } from '@/lib/utils';
+import { cn, money, fmtDate, titleCase } from '@/lib/utils';
+import { SCOPE_META } from '@/components/agents/shared';
+import { QueryError } from '@/components/collaborations/QueryError';
+import type { RoleScope } from '@/types';
 import { PageHeader } from '@/components/ui/page-header';
 import { Card, CardHeader } from '@/components/ui/card';
 import { Avatar } from '@/components/ui/avatar';
@@ -33,7 +36,7 @@ export default function Settings() {
               <div>
                 <div className="text-base font-semibold">{u.name}</div>
                 <div className="text-sm text-muted-foreground">{u.email}</div>
-                <div className="mt-1.5 flex items-center gap-2"><Badge tone="primary">{u.role}</Badge>{u.title && <span className="text-xs text-muted-foreground">{u.title}</span>}</div>
+                <div className="mt-1.5 flex items-center gap-2"><Badge tone="primary">{titleCase(u.role)}</Badge>{u.title && <span className="text-xs text-muted-foreground">{u.title}</span>}</div>
               </div>
             </div>
             <KeyValue className="mt-5" columns={2} items={[{ label: 'Organisation', value: me.org?.name ?? '—' }, { label: 'Member since', value: fmtDate(u.created_at) }, { label: 'User id', value: u.id, mono: true }, { label: 'Scope id', value: u.brand_id ?? u.agency_id ?? u.creator_id ?? '—', mono: true }]} />
@@ -73,9 +76,10 @@ export default function Settings() {
             <Card>
               <CardHeader title="Permission scopes" icon={<ShieldCheck className="h-4 w-4" />} description="Which MCP tools each agent scope can call." />
               <div className="space-y-3">
+                {scopes.isError && <QueryError compact what="permission scopes" error={scopes.error} refetch={scopes.refetch} />}
                 {scopes.data && Object.entries(scopes.data.scopes).map(([scope, tools]) => (
                   <div key={scope} className="rounded-xl border border-border p-3">
-                    <div className="mb-2 text-[13px] font-semibold">{scope.replace(/_/g, ' ')}</div>
+                    <div className="mb-2 text-[13px] font-semibold">{SCOPE_META[scope as RoleScope]?.label ?? titleCase(scope)}</div>
                     <div className="flex flex-wrap gap-1">{tools.map((t) => <code key={t} className="rounded-md bg-surface-muted px-1.5 py-0.5 font-mono text-[11px] text-muted-foreground">{t}</code>)}</div>
                   </div>
                 ))}

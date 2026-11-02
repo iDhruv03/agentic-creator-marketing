@@ -2,12 +2,12 @@ import * as React from 'react';
 import { Inbox, type LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
-export function Progress({ value, max = 100, tone = 'primary', className, size = 'md', segments }: { value: number; max?: number; tone?: 'primary' | 'success' | 'warning' | 'danger' | 'info' | 'agent'; className?: string; size?: 'xs' | 'sm' | 'md'; segments?: { value: number; tone: 'primary' | 'success' | 'warning' | 'danger' | 'info' | 'agent' | 'muted' }[] }) {
+export function Progress({ value, max = 100, tone = 'primary', className, size = 'md', segments, label }: { value: number; max?: number; tone?: 'primary' | 'success' | 'warning' | 'danger' | 'info' | 'agent'; className?: string; size?: 'xs' | 'sm' | 'md'; segments?: { value: number; tone: 'primary' | 'success' | 'warning' | 'danger' | 'info' | 'agent' | 'muted' }[]; label?: string }) {
   const tones = { primary: 'bg-primary', success: 'bg-success', warning: 'bg-warning', danger: 'bg-danger', info: 'bg-info', agent: 'bg-agent', muted: 'bg-muted-foreground/40' };
   const heights = { xs: 'h-1', sm: 'h-1.5', md: 'h-2' };
   const pctOf = (v: number) => `${Math.max(0, Math.min(100, (v / (max || 1)) * 100))}%`;
   return (
-    <div className={cn('flex w-full overflow-hidden rounded-full bg-muted', heights[size], className)}>
+    <div role="progressbar" aria-label={label ?? 'Progress'} aria-valuemin={0} aria-valuemax={max} aria-valuenow={Math.max(0, Math.min(max, segments ? segments.reduce((a, s) => a + s.value, 0) : value))} className={cn('flex w-full overflow-hidden rounded-full bg-muted', heights[size], className)}>
       {segments ? segments.map((s, i) => <div key={i} className={cn('h-full transition-all duration-500', tones[s.tone])} style={{ width: pctOf(s.value) }} />) : <div className={cn('h-full rounded-full transition-all duration-500', tones[tone])} style={{ width: pctOf(value) }} />}
     </div>
   );
@@ -43,7 +43,7 @@ export function EmptyState({ icon: Icon = Inbox, title, description, action, cla
   return (
     <div className={cn('flex flex-col items-center justify-center rounded-2xl border border-dashed border-border text-center', compact ? 'px-4 py-8' : 'px-6 py-14', className)}>
       <div className="mb-3 flex h-11 w-11 items-center justify-center rounded-xl bg-surface-muted text-muted-foreground"><Icon className="h-5 w-5" /></div>
-      <h3 className="text-sm font-semibold">{title}</h3>
+      <p className="text-sm font-semibold text-foreground">{title}</p>
       {description && <p className="mt-1 max-w-sm text-[13px] text-muted-foreground">{description}</p>}
       {action && <div className="mt-4">{action}</div>}
     </div>
@@ -75,13 +75,13 @@ export function Kbd({ children }: { children: React.ReactNode }) {
 }
 
 export function Spinner({ className }: { className?: string }) {
-  return <span className={cn('inline-block h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent', className)} />;
+  return <span role="status" aria-label="Loading" className={cn('inline-block h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent', className)} />;
 }
 
 export function PulseDot({ tone = 'success', className }: { tone?: 'success' | 'warning' | 'danger' | 'primary' | 'agent'; className?: string }) {
   const tones = { success: 'bg-success', warning: 'bg-warning', danger: 'bg-danger', primary: 'bg-primary', agent: 'bg-agent' };
   return (
-    <span className={cn('relative inline-flex h-2 w-2', className)}>
+    <span aria-hidden className={cn('relative inline-flex h-2 w-2', className)}>
       <span className={cn('absolute inline-flex h-full w-full rounded-full opacity-75 animate-pulse-ring', tones[tone])} />
       <span className={cn('relative inline-flex h-2 w-2 rounded-full', tones[tone])} />
     </span>
@@ -109,12 +109,12 @@ export function Score({ value, size = 'md', label }: { value: number; size?: 'sm
   const r = (dims - 6) / 2;
   const c = 2 * Math.PI * r;
   return (
-    <div className="relative inline-flex items-center justify-center" style={{ width: dims, height: dims }} title={label}>
-      <svg width={dims} height={dims} className="-rotate-90">
+    <div className="relative inline-flex items-center justify-center" style={{ width: dims, height: dims }} title={label} role="img" aria-label={`${label ? label + ': ' : ''}${Math.round(value)} out of 100`}>
+      <svg width={dims} height={dims} className="-rotate-90" aria-hidden>
         <circle cx={dims / 2} cy={dims / 2} r={r} stroke="hsl(var(--muted))" strokeWidth={3} fill="none" />
         <circle cx={dims / 2} cy={dims / 2} r={r} stroke={stroke} strokeWidth={3} fill="none" strokeDasharray={c} strokeDashoffset={c - (c * Math.min(100, value)) / 100} strokeLinecap="round" className="transition-all duration-700" />
       </svg>
-      <span className={cn('absolute font-semibold tabular-nums', tone, size === 'sm' ? 'text-[10px]' : size === 'md' ? 'text-xs' : 'text-base')}>{Math.round(value)}</span>
+      <span aria-hidden className={cn('absolute font-semibold tabular-nums', tone, size === 'sm' ? 'text-[10px]' : size === 'md' ? 'text-xs' : 'text-base')}>{Math.round(value)}</span>
     </div>
   );
 }

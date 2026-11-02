@@ -1,7 +1,7 @@
 import * as React from 'react';
 import { Bot, User as UserIcon, Cpu, ShieldAlert, ShieldCheck, ShieldX, Clock, CheckCircle2, XCircle, PauseCircle, PlayCircle, Archive, FileEdit, AlertTriangle } from 'lucide-react';
 import { Badge, type BadgeProps } from './badge';
-import { titleCase, cn } from '@/lib/utils';
+import { titleCase, cn, platformLabel } from '@/lib/utils';
 import type { CampaignStatus, CollaborationStatus, DeliverableStatus, ExecutionStatus, RunStatus, SessionStatus, CheckpointAction } from '@/types';
 
 type Tone = NonNullable<BadgeProps['tone']>;
@@ -114,10 +114,11 @@ export function ActorBadge({ type, name, size }: { type: 'HUMAN' | 'AGENT' | 'SY
 
 export function PlatformIcon({ platform, className }: { platform: string; className?: string }) {
   const base = cn('inline-flex h-5 w-5 items-center justify-center rounded-md text-[10px] font-bold text-white', className);
-  if (platform === 'youtube') return <span className={cn(base, 'bg-[#ff0033]')}>▶</span>;
-  if (platform === 'tiktok') return <span className={cn(base, 'bg-black dark:bg-white dark:text-black')}>♪</span>;
-  if (platform === 'instagram') return <span className={cn(base, 'bg-gradient-to-tr from-[#f9ce34] via-[#ee2a7b] to-[#6228d7]')}>◎</span>;
-  return <span className={cn(base, 'bg-muted-foreground')}>{platform[0]?.toUpperCase()}</span>;
+  const a11y = { role: 'img' as const, 'aria-label': platformLabel(platform) };
+  if (platform === 'youtube') return <span {...a11y} className={cn(base, 'bg-[#ff0033]')}>▶</span>;
+  if (platform === 'tiktok') return <span {...a11y} className={cn(base, 'bg-black dark:bg-white dark:text-black')}>♪</span>;
+  if (platform === 'instagram') return <span {...a11y} className={cn(base, 'bg-gradient-to-tr from-[#f9ce34] via-[#ee2a7b] to-[#6228d7]')}>◎</span>;
+  return <span {...a11y} className={cn(base, 'bg-muted-foreground')}>{platform[0]?.toUpperCase()}</span>;
 }
 
 export function PlatformIcons({ platforms, className }: { platforms: string[]; className?: string }) {

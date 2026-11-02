@@ -19,6 +19,7 @@ import { CollabStatusBadge, DeliverableStatusBadge, PlatformIcon } from '@/compo
 import { ConfirmDialog } from '@/components/ui/overlay';
 import { KeyValue } from '@/components/ui/data';
 import { OfferCard } from '@/components/creator/OfferCard';
+import { QueryError } from '@/components/collaborations/QueryError';
 import { isInbox, isActive, creatorCanRespond, deliverableProgress, currentRate, deadlineInfo, monthLabel } from '@/components/creator/utils';
 
 export default function CreatorHome() {
@@ -36,7 +37,9 @@ export default function CreatorHome() {
   const offers = all.filter(isInbox);
   const actionableOffers = offers.filter(creatorCanRespond);
   const active = all.filter(isActive);
-  const awaitingContent = active.flatMap((c) => c.deliverables.filter((d) => d.status === 'PENDING' && (c.status === 'ACCEPTED' || c.status === 'IN_PROGRESS')).map((d) => ({ c, d })));
+  // Any PENDING deliverable on an active collaboration is waiting on the creator — including while other deliverables
+  // are in review or approved (the server accepts submissions in ACCEPTED / IN_PROGRESS / SUBMITTED / APPROVED).
+  const awaitingContent = active.flatMap((c) => c.deliverables.filter((d) => d.status === 'PENDING').map((d) => ({ c, d })));
   const changes = active.flatMap((c) => c.deliverables.filter((d) => d.status === 'CHANGES_REQUESTED').map((d) => ({ c, d })));
   const attention = actionableOffers.length + awaitingContent.length + changes.length;
   const analytics = wallet.data?.analytics ?? creator.data?.analytics;
@@ -70,18 +73,18 @@ export default function CreatorHome() {
               <div><h2 className="text-base font-semibold">Needs your attention</h2><p className="text-[13px] text-muted-foreground">Offers to answer and content the brand is waiting on</p></div>
               {attention > 0 && <Badge tone="warning" size="lg">{attention}</Badge>}
             </div>
-            {collabs.isLoading ? <SkeletonRows rows={3} /> : attention === 0 ? (
+            {collabs.isLoading ? <SkeletonRows rows={3} /> : collabs.isError ? <QueryError compact what="your offers and work" error={collabs.error} refetch={collabs.refetch} /> : attention === 0 ? (
               <EmptyState compact icon={Check} title="All clear" description="No open offers or outstanding deliverables. Keep your media kit fresh so agents can find you." action={<Button size="sm" variant="secondary" onClick={() => navigate('/creator/profile')}>Update media kit</Button>} />
             ) : (
               <div className="space-y-3">
                 {actionableOffers.map((c) => (
-                  <OfferCard key={c.id} collab={c} actions={<Button size="xs" variant="success" leftIcon={<Check className="h-3 w-3" />} onClick={() => setAccepting(c)}>Accept {money(currentRate(c))}</Button>} />
+                  <OfferCard key={c.id} collab={c} actions={<Button size="sm" variant="success" leftIcon={<Check className="h-3.5 w-3.5" />} onClick={() => setAccepting(c)}>Accept {money(currentRate(c))}</Button>} />
                 ))}
                 {changes.map(({ c, d }) => (
                   <Link key={d.id} to={`/creator/offers/${c.id}`} className="card card-hover flex items-start gap-3 border-danger/30 p-4">
                     <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-danger-soft text-danger"><AlertTriangle className="h-4 w-4" /></span>
                     <div className="min-w-0 flex-1">
-                      <div className="flex flex-wrap items-center gap-2 text-[14px] font-medium"><PlatformIcon platform={d.platform} className="h-4 w-4 text-[9px]" />{deliverableLabel(d.deliverable_type)}<DeliverableStatusBadge status={d.status} size="sm" /></div>
+                      <div className="flex flex-wrap items-center gap-2 text-[14px] font-medium"><PlatformIcon platform={d.platform} />{deliverableLabel(d.deliverable_type)}<DeliverableStatusBadge status={d.status} size="sm" /></div>
                       <div className="mt-0.5 text-xs text-muted-foreground">{c.brand_name} · {c.campaign_title}</div>
                       {d.review_notes && <div className="mt-1.5 line-clamp-2 text-[13px] text-foreground/80">{d.review_notes}</div>}
                     </div>
@@ -94,7 +97,7 @@ export default function CreatorHome() {
                     <Link key={d.id} to={`/creator/offers/${c.id}`} className="card card-hover flex items-start gap-3 p-4">
                       <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary-soft text-primary"><Upload className="h-4 w-4" /></span>
                       <div className="min-w-0 flex-1">
-                        <div className="flex flex-wrap items-center gap-2 text-[14px] font-medium"><PlatformIcon platform={d.platform} className="h-4 w-4 text-[9px]" />{deliverableLabel(d.deliverable_type)}<DeliverableStatusBadge status={d.status} size="sm" /></div>
+                        <div className="flex flex-wrap items-center gap-2 text-[14px] font-medium"><PlatformIcon platform={d.platform} />{deliverableLabel(d.deliverable_type)}<DeliverableStatusBadge status={d.status} size="sm" /></div>
                         <div className="mt-0.5 text-xs text-muted-foreground">{c.brand_name} · {c.campaign_title}{dl && <span className={cn(dl.past ? 'text-danger font-medium' : dl.soon ? 'text-warning' : '')}> · due {dl.label}</span>}</div>
                       </div>
                       <span className="hidden shrink-0 items-center gap-1 text-xs text-primary sm:flex">{c.status === 'ACCEPTED' ? 'Start' : 'Submit'}<ArrowRight className="h-3.5 w-3.5" /></span>
@@ -107,10 +110,7 @@ export default function CreatorHome() {
 
           {/* Active work */}
           <Card padded={false}>
-            <div className="flex items-center justify-between px-5 pt-5">
-              <div><h3 className="text-[15px] font-semibold">Active work</h3><p className="text-[13px] text-muted-foreground">Accepted collaborations and deliverable progress</p></div>
-              <Button variant="ghost" size="sm" rightIcon={<ArrowRight className="h-3.5 w-3.5" />} onClick={() => navigate('/creator/offers?tab=active')}>All work</Button>
-            </div>
+            <CardHeader className="mb-0 px-5 pt-5" title="Active work" description="Accepted collaborations and deliverable progress" action={<Button variant="ghost" size="sm" rightIcon={<ArrowRight className="h-3.5 w-3.5" />} onClick={() => navigate('/creator/offers?tab=active')}>All work</Button>} />
             <div className="mt-3 divide-y divide-border/70">
               {collabs.isLoading && <div className="px-5 pb-5"><SkeletonRows rows={2} /></div>}
               {!collabs.isLoading && active.length === 0 && <div className="px-5 pb-5"><EmptyState compact icon={Sparkles} title="No active work" description="Accepted offers show up here with their deliverable progress." /></div>}

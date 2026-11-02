@@ -18,10 +18,12 @@ export function Avatar({ src, name, size = 'md', square, ring, className, ...pro
   return (
     <div
       className={cn('relative inline-flex shrink-0 select-none items-center justify-center overflow-hidden font-semibold text-white', sizes[size], square ? 'rounded-xl' : 'rounded-full', ring && 'ring-2 ring-surface', className)}
-      style={showImg ? undefined : { background: `linear-gradient(135deg, hsl(${hue} 70% 55%), hsl(${(hue + 40) % 360} 70% 45%))` }}
+      style={showImg ? undefined : { background: `linear-gradient(135deg, hsl(${hue} 60% 44%), hsl(${(hue + 40) % 360} 60% 36%))` }}
+      role="img"
+      aria-label={name}
       {...props}
     >
-      {showImg ? <img src={src!} alt={name} className="h-full w-full object-cover" onError={() => setFailed(true)} loading="lazy" /> : initials(name)}
+      {showImg ? <img src={src!} alt="" className="h-full w-full object-cover" onError={() => setFailed(true)} loading="lazy" /> : <span aria-hidden>{initials(name)}</span>}
     </div>
   );
 }
@@ -32,7 +34,7 @@ export function AvatarStack({ items, max = 4, size = 'sm' }: { items: { name: st
   return (
     <div className="flex -space-x-2">
       {shown.map((it, i) => <Avatar key={i} name={it.name} src={it.src} size={size} ring />)}
-      {rest > 0 && <div className={cn('inline-flex items-center justify-center rounded-full bg-muted font-medium text-muted-foreground ring-2 ring-surface', sizes[size])}>+{rest}</div>}
+      {rest > 0 && <div className={cn('inline-flex items-center justify-center rounded-full bg-muted font-medium text-muted-foreground ring-2 ring-surface', sizes[size])} aria-label={`${rest} more`}>+{rest}</div>}
     </div>
   );
 }

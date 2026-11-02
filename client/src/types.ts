@@ -171,7 +171,7 @@ export interface CampaignAnalytics {
   funnel: { shortlisted: number; offered: number; accepted: number; delivered: number; approved: number; paid: number };
   by_creator: { creator_id: string; name: string; handle: string; avatar_url: string | null; rate: number; status: string; views: number; engagement_rate: number; cpe: number; deliverables: number }[];
   by_platform: { platform: string; views: number; engagements: number; deliverables: number }[];
-  timeline: { date: string; spend: number; views: number }[];
+  timeline: { date: string; spend: number; committed: number; views: number }[];
 }
 
 export interface CreatorAnalytics {
@@ -184,7 +184,7 @@ export interface CreatorAnalytics {
 export interface Wallet { balance: number; pending_escrow: number; lifetime_earnings: number; ledger: LedgerEntry[]; analytics: CreatorAnalytics }
 
 export interface EvaluationRun { id: string; scenario_name: string; scenario_key: string; workflow_type: 'MANUAL' | 'AGENTIC'; time_to_launch_sec: number; human_minutes: number; matching_accuracy_pct: number; creators_evaluated: number; offers_sent: number; approvals_required: number; agent_run_id: string | null; notes: string; created_at: string }
-export interface Scenario { key: string; name: string; description: string; brand_id: string; niche: string; platforms: string[]; budget: number; rate_band: [number, number]; deliverables: string[]; creators_to_evaluate: number }
+export interface Scenario { key: string; name: string; description: string; brand_id: string; brand_name: string; niche: string; platforms: string[]; budget: number; rate_band: [number, number]; deliverables: string[]; creators_to_evaluate: number }
 export interface EvaluationSummary {
   manual: { runs: number; time_to_launch_sec: number; human_minutes: number; matching_accuracy_pct: number; approvals_required: number };
   agentic: { runs: number; time_to_launch_sec: number; human_minutes: number; matching_accuracy_pct: number; approvals_required: number };

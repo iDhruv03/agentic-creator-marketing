@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { Link } from 'react-router-dom';
-import { ShieldCheck, ShieldX, RefreshCw, ChevronRight, ChevronLeft, Megaphone, Bot, PlayCircle, ScrollText, Hash } from 'lucide-react';
+import { ShieldCheck, ShieldX, RefreshCw, ChevronRight, ChevronLeft, Megaphone, Bot, PlayCircle, ScrollText, Hash, AlertTriangle } from 'lucide-react';
 import { useAudit, useAuditVerify, useCampaigns } from '@/hooks/queries';
 import type { AuditRecord, ExecutionStatus } from '@/types';
 import { fmtDateTime, timeAgo, num, titleCase, cn } from '@/lib/utils';
@@ -81,7 +81,9 @@ export default function Audit() {
           </div>
 
           <Card padded={false} className="overflow-hidden">
-            {audit.isLoading ? <div className="p-5"><SkeletonRows rows={8} /></div> : items.length === 0 ? (
+            {audit.isLoading ? <div className="p-5"><SkeletonRows rows={8} /></div> : audit.isError ? (
+              <div className="p-5"><EmptyState compact icon={AlertTriangle} title="Couldn't load the audit trail" description={audit.error instanceof Error ? audit.error.message : 'Try again in a moment.'} action={<Button size="sm" variant="secondary" onClick={() => audit.refetch()}>Retry</Button>} /></div>
+            ) : items.length === 0 ? (
               <div className="p-5"><EmptyState compact icon={ScrollText} title="No audit entries match" description={filtersActive ? 'Loosen the filters to see more of the trail.' : 'Tool calls and human decisions will appear here as they happen.'} /></div>
             ) : (
               <div className="overflow-x-auto">
@@ -123,7 +125,7 @@ function Row({ a, open, onToggle, campaignName }: { a: AuditRecord; open: boolea
     <>
       <tr onClick={onToggle} className={cn('cursor-pointer transition hover:bg-accent/50', open && 'bg-primary-soft/30')}>
         <td><span className="inline-flex items-center gap-1 font-mono text-xs text-muted-foreground"><ChevronRight className={cn('h-3.5 w-3.5 transition', open && 'rotate-90')} />{a.seq}</span></td>
-        <td><Tooltip content={a.timestamp}><span className="block whitespace-nowrap text-xs text-muted-foreground">{fmtDateTime(a.timestamp)}</span></Tooltip><span className="block whitespace-nowrap font-mono text-[10.5px] tabular-nums text-muted-foreground/80">{a.duration_ms} ms</span></td>
+        <td><Tooltip content={a.timestamp}><span className="block whitespace-nowrap text-xs text-muted-foreground">{fmtDateTime(a.timestamp)}</span></Tooltip><span className="block whitespace-nowrap font-mono text-[10.5px] tabular-nums text-muted-foreground">{a.duration_ms} ms</span></td>
         <td><span className="block max-w-[128px] truncate"><ActorBadge type={a.actor_type} name={a.actor_name ?? (a.actor_type === 'AGENT' ? 'Agent' : a.actor_type === 'SYSTEM' ? 'System' : 'Human')} size="sm" /></span></td>
         <td><ToolChip name={a.tool_name} /></td>
         <td><ExecStatusBadge status={a.execution_status} size="sm" /></td>

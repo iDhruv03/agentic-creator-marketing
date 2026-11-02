@@ -4,7 +4,7 @@ import { Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const buttonVariants = cva(
-  'inline-flex select-none items-center justify-center gap-2 whitespace-nowrap rounded-xl font-medium transition-all duration-150 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary/20 disabled:pointer-events-none disabled:opacity-50 active:scale-[0.985]',
+  'inline-flex select-none items-center justify-center gap-2 whitespace-nowrap rounded-xl font-medium transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:pointer-events-none disabled:opacity-50 active:scale-[0.985]',
   {
     variants: {
       variant: {
@@ -12,18 +12,18 @@ const buttonVariants = cva(
         secondary: 'border border-border bg-surface text-foreground shadow-sm hover:bg-accent hover:border-foreground/20',
         ghost: 'text-foreground/80 hover:bg-accent hover:text-foreground',
         subtle: 'bg-muted text-foreground hover:bg-accent',
-        danger: 'bg-danger text-white shadow-sm hover:brightness-110',
-        success: 'bg-success text-white shadow-sm hover:brightness-110',
+        danger: 'bg-danger text-danger-foreground shadow-sm hover:brightness-110',
+        success: 'bg-success text-success-foreground shadow-sm hover:brightness-110',
         outline: 'border border-primary/40 text-primary hover:bg-primary-soft',
         link: 'text-primary underline-offset-4 hover:underline px-0 h-auto',
-        agent: 'bg-gradient-to-r from-agent to-primary text-white shadow-sm hover:brightness-110 hover:shadow-glow',
+        agent: 'bg-gradient-to-r from-agent to-primary text-agent-foreground shadow-sm hover:brightness-110 hover:shadow-glow',
       },
       size: {
         xs: 'h-7 px-2.5 text-xs rounded-lg',
         sm: 'h-8 px-3 text-[13px] rounded-lg',
         md: 'h-10 px-4 text-sm',
         lg: 'h-11 px-5 text-[15px]',
-        icon: 'h-9 w-9 rounded-lg',
+        icon: 'h-10 w-10 rounded-lg',
         'icon-sm': 'h-8 w-8 rounded-lg',
       },
     },
@@ -38,8 +38,8 @@ export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElemen
 }
 
 export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(({ className, variant, size, loading, leftIcon, rightIcon, children, disabled, ...props }, ref) => (
-  <button ref={ref} className={cn(buttonVariants({ variant, size }), className)} disabled={disabled || loading} {...props}>
-    {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : leftIcon}
+  <button ref={ref} className={cn(buttonVariants({ variant, size }), className)} disabled={disabled || loading} aria-busy={loading || undefined} {...props}>
+    {loading ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : leftIcon}
     {children}
     {!loading && rightIcon}
   </button>
