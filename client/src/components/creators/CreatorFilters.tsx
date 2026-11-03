@@ -102,7 +102,7 @@ export function CreatorFilters({ value, onChange, onReset, hideHeader }: { value
 
       <div>
         <Label>Audience country</Label>
-        <Select size="sm" value={value.country} onValueChange={(country) => onChange({ country })} allowEmpty="Any country" placeholder={marketplace.isLoading ? 'Loading…' : 'Any country'} options={countries.map((c) => ({ value: c, label: c }))} />
+        <Select size="sm" label="Audience country" value={value.country} onValueChange={(country) => onChange({ country })} allowEmpty="Any country" placeholder={marketplace.isLoading ? 'Loading…' : 'Any country'} options={countries.map((c) => ({ value: c, label: c }))} />
         <Hint>Creators whose audience includes this market. Naming it also lifts their audience-fit score.</Hint>
       </div>
 

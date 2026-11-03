@@ -77,6 +77,10 @@ npm start           # run the production build on :3001
 docker compose up   # same, containerised
 ```
 
+## Demo video
+
+A narrated 3-minute product tour can be regenerated from the live app with `scripts/demo/record-demo.mjs` (see `scripts/demo/README.md`).
+
 ## Connect an MCP client
 
 **Claude Desktop / Cursor (stdio)** — add to your MCP config:
